@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 3.15)
+project(SoftRenderer)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 指定 SDL2 的路径（请确认路径正确）
+set(SDL2_DIR "D:/Environment/SDL2/x86_64-w64-mingw32")
+
+include_directories(${SDL2_DIR}/include)
+
+add_executable(${PROJECT_NAME} src/main.cpp)
+
+# 按正确顺序链接库
+target_link_libraries(${PROJECT_NAME}
+    mingw32                          # MinGW 系统库（必须放在最前）
+    ${SDL2_DIR}/lib/libSDL2main.a    # SDL2 入口点处理
+    ${SDL2_DIR}/lib/libSDL2.dll.a    # SDL2 主库
+)
+
+# （可选）添加 -mwindows 标志，让程序不显示控制台窗口
+set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-mwindows")
+
+# 将 SDL2.dll 复制到输出目录
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${SDL2_DIR}/bin/SDL2.dll"
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+)

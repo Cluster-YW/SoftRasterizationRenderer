@@ -1,0 +1,9 @@
+build/
+cmake-build-*/
+*.exe
+*.o
+*.a
+*.so
+*.dll
+*.pdb
+.vscode/
