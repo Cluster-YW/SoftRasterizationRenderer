@@ -9,7 +9,10 @@ set(SDL2_DIR "D:/Environment/SDL2/x86_64-w64-mingw32")
 
 include_directories(${SDL2_DIR}/include)
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME} 
+    src/main.cpp 
+    src/core/Vector3f.cpp
+)
 
 # 按正确顺序链接库
 target_link_libraries(${PROJECT_NAME}
@@ -19,7 +22,7 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # （可选）添加 -mwindows 标志，让程序不显示控制台窗口
-set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-mwindows")
+# set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-mwindows")
 
 # 将 SDL2.dll 复制到输出目录
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
