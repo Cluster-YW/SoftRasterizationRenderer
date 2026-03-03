@@ -12,6 +12,40 @@ void put_pixel(Framebuffer& framebuffer, int x, int y, uint32_t color) {
     framebuffer[y * SCREEN_WIDTH + x] = color;
 }
 
+void draw_line(Framebuffer& framebuffer, int x0, int y0, int x1, int y1, uint32_t color) {
+    bool steep = std::abs(y1 - y0) > std::abs(x1 - x0); // determine if the line is steep
+    if (steep) { // if the line is steep, swap the x and y coordinates
+        std::swap(x0, y0);
+        std::swap(x1, y1);
+    }
+    //ensure x0 <= x1
+    if (x0 > x1) {
+        std::swap(x0, x1);
+        std::swap(y0, y1);
+    }
+
+    // Bresenham's algorithm
+    int dx = x1 - x0;
+    int dy = std::abs(y1 - y0);
+    int err = dx / 2;
+    int ystep = (y0 < y1)? 1 : -1;
+    int y = y0;
+    for (int x = x0; x <= x1; x++) {
+        if (steep) {
+            put_pixel(framebuffer, y, x, color);
+        } else {
+            put_pixel(framebuffer, x, y, color);
+        }
+        err -= dy;
+        if (err < 0) {
+            y += ystep;
+            err += dx;
+        }
+    }
+
+
+}
+
 int main(int argc, char* argv[]) {
 
     // ********** SDL initialization **********
@@ -79,16 +113,16 @@ int main(int argc, char* argv[]) {
 
         int center_x = SCREEN_WIDTH / 2;
         int center_y = SCREEN_HEIGHT / 2;
-        for (int x=center_x-100; x<=center_x+100; x++)
-            put_pixel(framebuffer, x, center_y, RED);
-
-        for (int y=center_y-100; y<=center_y+100; y++)
-            put_pixel(framebuffer, center_x, y, GREEN);
-
-        put_pixel(framebuffer, 10, 10, BLUE);
-        put_pixel(framebuffer, SCREEN_WIDTH-11, 10, BLUE);
-        put_pixel(framebuffer, 10, SCREEN_HEIGHT-11, BLUE);
-        put_pixel(framebuffer, SCREEN_WIDTH-11, SCREEN_HEIGHT-11, BLUE);
+        // draw a cross
+        draw_line(framebuffer, center_x - 50, center_y, center_x + 50, center_y, RED);
+        draw_line(framebuffer, center_x, center_y - 50, center_x, center_y + 50, GREEN);
+        
+        // draw a rectangle
+        draw_line(framebuffer, 100, 100, 300, 100, BLUE);
+        draw_line(framebuffer, 300, 100, 300, 300, BLUE);
+        draw_line(framebuffer, 300, 300, 100, 300, BLUE);
+        draw_line(framebuffer, 100, 300, 100, 100, BLUE);
+        
 
         // update texture
         SDL_UpdateTexture(texture, nullptr, framebuffer.data(), SCREEN_WIDTH * sizeof(uint32_t));
