@@ -3,6 +3,7 @@ project(SoftRenderer)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 指定 SDL2 的路径（请确认路径正确）
 set(SDL2_DIR "D:/Environment/SDL2/x86_64-w64-mingw32")

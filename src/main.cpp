@@ -1,7 +1,9 @@
 #include "core/matrix4x4f.h"
 #include "core/vector3f.h"
+#include "core/vertex.h"
 #include "viewport.h"
 #include <SDL2/SDL.h>
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -96,22 +98,23 @@ int main(int argc, char *argv[]) {
   const uint32_t GREEN = 0xFF00FF00;
   const uint32_t BLUE = 0xFF0000FF;
 
-  std::vector<Vector3f> cubeVertices = {
-      Vector3f(-1, -1, -1), // 0
-      Vector3f(1, -1, -1),  // 1
-      Vector3f(1, 1, -1),   // 2
-      Vector3f(-1, 1, -1),  // 3
-      Vector3f(-1, -1, 1),  // 4
-      Vector3f(1, -1, 1),   // 5
-      Vector3f(1, 1, 1),    // 6
-      Vector3f(-1, 1, 1)    // 7
+  std::vector<Vertex> cubeVertices = {
+      // (z = -1)
+      Vertex(-1, -1, -1, 1.0f, 0.0f, 0.0f), // 0: red
+      Vertex(1, -1, -1, 0.0f, 1.0f, 0.0f),  // 1: green
+      Vertex(1, 1, -1, 0.0f, 0.0f, 1.0f),   // 2: blue
+      Vertex(-1, 1, -1, 1.0f, 1.0f, 0.0f),  // 3: yellow
+
+      // (z = 1)
+      Vertex(-1, -1, 1, 1.0f, 0.0f, 1.0f), // 4: magenta
+      Vertex(1, -1, 1, 0.0f, 1.0f, 1.0f),  // 5: cyan
+      Vertex(1, 1, 1, 1.0f, 1.0f, 1.0f),   // 6: white
+      Vertex(-1, 1, 1, 0.5f, 0.5f, 0.5f)   // 7: gray
   };
 
-  std::vector<std::pair<int, int>> cubeEdges = {
-      {0, 1}, {1, 2}, {2, 3}, {3, 0}, // back
-      {4, 5}, {5, 6}, {6, 7}, {7, 4}, // front
-      {0, 4}, {1, 5}, {2, 6}, {3, 7}  // connection
-  };
+  std::vector<std::array<int, 3>> cubeTriangles = {
+      {0, 2, 1}, {0, 3, 2}, {4, 5, 6}, {4, 6, 7}, {0, 4, 7}, {0, 7, 3},
+      {1, 2, 6}, {1, 6, 5}, {0, 1, 5}, {0, 5, 4}, {3, 7, 6}, {3, 6, 2}};
 
   Matrix4x4f modelMatrix = Matrix4x4f::identity();
   Matrix4x4f viewMatrix = Matrix4x4f::lookAt(
@@ -141,23 +144,32 @@ int main(int argc, char *argv[]) {
     std::fill(framebuffer.begin(), framebuffer.end(), 0x00000000);
 
     // ======
+    std::vector<Vector3f> transformedPositions(cubeVertices.size());
+    std::vector<Vector3f> transformedColors(cubeVertices.size());
 
-    std::vector<Vector3f> transformedVertices(cubeVertices.size());
     for (size_t i = 0; i < cubeVertices.size(); i++) {
-      Vector3f world = modelMatrix * cubeVertices[i];
+      Vector3f world = modelMatrix * cubeVertices[i].position;
       Vector3f view = viewMatrix * world;
       Vector3f clip = projMatrix * view;
       Vector3f ndc = clip;
 
-      transformedVertices[i] =
+      transformedPositions[i] =
           viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
+      transformedColors[i] = cubeVertices[i].color;
     }
 
-    for (const auto &edge : cubeEdges) {
-      const Vector3f &p1 = transformedVertices[edge.first];
-      const Vector3f &p2 = transformedVertices[edge.second];
+    for (const auto &tri : cubeTriangles) {
+      const Vector3f &p0 = transformedPositions[tri[0]];
+      const Vector3f &p1 = transformedPositions[tri[1]];
+      const Vector3f &p2 = transformedPositions[tri[2]];
+
+      // 绘制三角形的三条边（白色，暂时）
+      draw_line(framebuffer, (int)p0.x, (int)p0.y, (int)p1.x, (int)p1.y,
+                0xFFFFFFFF);
       draw_line(framebuffer, (int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y,
-                0xFFFFFFFF); // 白色线
+                0xFFFFFFFF);
+      draw_line(framebuffer, (int)p2.x, (int)p2.y, (int)p0.x, (int)p0.y,
+                0xFFFFFFFF);
     }
 
     // update texture

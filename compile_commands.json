@@ -1,0 +1,20 @@
+[
+{
+  "directory": "D:/Code/Github/SoftRasterizationRenderer/build",
+  "command": "D:\\Environment\\mingw64\\bin\\g++.exe  @CMakeFiles/SoftRenderer.dir/includes_CXX.rsp -g -std=gnu++17 -o CMakeFiles\\SoftRenderer.dir\\src\\main.cpp.obj -c D:\\Code\\Github\\SoftRasterizationRenderer\\src\\main.cpp",
+  "file": "D:/Code/Github/SoftRasterizationRenderer/src/main.cpp",
+  "output": "CMakeFiles/SoftRenderer.dir/src/main.cpp.obj"
+},
+{
+  "directory": "D:/Code/Github/SoftRasterizationRenderer/build",
+  "command": "D:\\Environment\\mingw64\\bin\\g++.exe  @CMakeFiles/SoftRenderer.dir/includes_CXX.rsp -g -std=gnu++17 -o CMakeFiles\\SoftRenderer.dir\\src\\core\\vector3f.cpp.obj -c D:\\Code\\Github\\SoftRasterizationRenderer\\src\\core\\vector3f.cpp",
+  "file": "D:/Code/Github/SoftRasterizationRenderer/src/core/vector3f.cpp",
+  "output": "CMakeFiles/SoftRenderer.dir/src/core/vector3f.cpp.obj"
+},
+{
+  "directory": "D:/Code/Github/SoftRasterizationRenderer/build",
+  "command": "D:\\Environment\\mingw64\\bin\\g++.exe  @CMakeFiles/SoftRenderer.dir/includes_CXX.rsp -g -std=gnu++17 -o CMakeFiles\\SoftRenderer.dir\\src\\core\\matrix4x4f.cpp.obj -c D:\\Code\\Github\\SoftRasterizationRenderer\\src\\core\\matrix4x4f.cpp",
+  "file": "D:/Code/Github/SoftRasterizationRenderer/src/core/matrix4x4f.cpp",
+  "output": "CMakeFiles/SoftRenderer.dir/src/core/matrix4x4f.cpp.obj"
+}
+]
