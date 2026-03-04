@@ -18,6 +18,12 @@ void put_pixel(Framebuffer &framebuffer, int x, int y, uint32_t color) {
   framebuffer[y * SCREEN_WIDTH + x] = color;
 }
 
+struct VertexData {
+  Vector3f screen;
+  Vector3f color;
+  float u, v;
+};
+
 void draw_line(Framebuffer &framebuffer, int x0, int y0, int x1, int y1,
                uint32_t color) {
   bool steep =
@@ -102,16 +108,16 @@ int main(int argc, char *argv[]) {
 
   std::vector<Vertex> cubeVertices = {
       // (z = -1)
-      Vertex(-1, -1, -1, 1.0f, 0.0f, 0.0f), // 0: red
-      Vertex(1, -1, -1, 0.0f, 1.0f, 0.0f),  // 1: green
-      Vertex(1, 1, -1, 0.0f, 0.0f, 1.0f),   // 2: blue
-      Vertex(-1, 1, -1, 1.0f, 1.0f, 0.0f),  // 3: yellow
+      Vertex(Vector3f(-1, -1, -1), Vector3f(1, 0, 0), 0.0f, 0.0f), // 0
+      Vertex(Vector3f(1, -1, -1), Vector3f(0, 1, 0), 1.0f, 0.0f),  // 1
+      Vertex(Vector3f(1, 1, -1), Vector3f(0, 0, 1), 1.0f, 1.0f),   // 2
+      Vertex(Vector3f(-1, 1, -1), Vector3f(1, 1, 0), 0.0f, 1.0f),  // 3
 
       // (z = 1)
-      Vertex(-1, -1, 1, 1.0f, 0.0f, 1.0f), // 4: magenta
-      Vertex(1, -1, 1, 0.0f, 1.0f, 1.0f),  // 5: cyan
-      Vertex(1, 1, 1, 1.0f, 1.0f, 1.0f),   // 6: white
-      Vertex(-1, 1, 1, 0.5f, 0.5f, 0.5f)   // 7: gray
+      Vertex(Vector3f(-1, -1, 1), Vector3f(1, 0, 1), 0.0f, 0.0f),     // 4
+      Vertex(Vector3f(1, -1, 1), Vector3f(0, 1, 1), 1.0f, 0.0f),      // 5
+      Vertex(Vector3f(1, 1, 1), Vector3f(1, 1, 1), 1.0f, 1.0f),       // 6
+      Vertex(Vector3f(-1, 1, 1), Vector3f(0.5, 0.5, 0.5), 0.0f, 1.0f) // 7
   };
 
   std::vector<std::array<int, 3>> cubeTriangles = {
@@ -146,11 +152,7 @@ int main(int argc, char *argv[]) {
               0x00000000); // clear framebuffer
     depthBuffer.clear();   // clear depth buffer
 
-    std::vector<Vector3f> transformedPositions(cubeVertices.size());
-    std::vector<Vector3f> transformedColors(cubeVertices.size());
-
-    std::vector<Vector3f> screenPositions(cubeVertices.size()); // 屏幕坐标+深度
-    std::vector<Vector3f> vertexColors(cubeVertices.size());    // 颜色
+    std::vector<VertexData> transformedData(cubeVertices.size());
 
     for (size_t i = 0; i < cubeVertices.size(); i++) {
       // MVP
@@ -160,22 +162,19 @@ int main(int argc, char *argv[]) {
 
       Vector3f screen = viewportTransform(clip, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-      screenPositions[i] = screen; // screen.z is NDC Z [-1,1]
-      vertexColors[i] = cubeVertices[i].color;
+      transformedData[i] = {screen, cubeVertices[i].color, cubeVertices[i].u,
+                            cubeVertices[i].v};
     }
 
     // draw triangles
     for (const auto &tri : cubeTriangles) {
-      const Vector3f &p0 = screenPositions[tri[0]];
-      const Vector3f &p1 = screenPositions[tri[1]];
-      const Vector3f &p2 = screenPositions[tri[2]];
+      const auto &d0 = transformedData[tri[0]];
+      const auto &d1 = transformedData[tri[1]];
+      const auto &d2 = transformedData[tri[2]];
 
-      const Vector3f &c0 = vertexColors[tri[0]];
-      const Vector3f &c1 = vertexColors[tri[1]];
-      const Vector3f &c2 = vertexColors[tri[2]];
-
-      drawTriangle(p0, p1, p2, c0, c1, c2, framebuffer, depthBuffer,
-                   SCREEN_WIDTH, SCREEN_HEIGHT);
+      drawTriangle(d0.screen, d1.screen, d2.screen, d0.color, d1.color,
+                   d2.color, d0.u, d0.v, d1.u, d1.v, d2.u, d2.v, // UV
+                   framebuffer, depthBuffer, SCREEN_WIDTH, SCREEN_HEIGHT);
     }
 
     // === display ===
