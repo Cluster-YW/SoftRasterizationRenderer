@@ -119,6 +119,8 @@ int main(int argc, char *argv[]) {
   Matrix4x4f projMatrix = Matrix4x4f::perspective(
       45.0f * M_PI / 180.0f, (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
 
+  float angle = 0.0f;
+
   // ********** Main loop **********
   while (!quit) {
 
@@ -128,6 +130,11 @@ int main(int argc, char *argv[]) {
         quit = true;
       }
     }
+
+    // update model matrix
+    angle += 0.01f;
+    Matrix4x4f modelMatrix =
+        Matrix4x4f::rotationY(angle) * Matrix4x4f::rotationX(angle * 0.5f);
 
     // === rendering ===
     // clear framebuffer
