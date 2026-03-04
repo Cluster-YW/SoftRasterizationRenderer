@@ -11,7 +11,8 @@ include_directories(${SDL2_DIR}/include)
 
 add_executable(${PROJECT_NAME} 
     src/main.cpp 
-    src/core/Vector3f.cpp
+    src/core/vector3f.cpp
+    src/core/matrix4x4f.cpp
 )
 
 # 按正确顺序链接库
