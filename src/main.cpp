@@ -152,29 +152,36 @@ int main(int argc, char *argv[]) {
               0x00000000); // clear framebuffer
     depthBuffer.clear();   // clear depth buffer
 
-    std::vector<VertexData> transformedData(cubeVertices.size());
+    std::vector<VertexOut> verticesOut(cubeVertices.size());
 
     for (size_t i = 0; i < cubeVertices.size(); i++) {
+      VertexOut vout;
       // MVP
       Vector3f world = modelMatrix * cubeVertices[i].position;
       Vector3f view = viewMatrix * world;
-      Vector3f clip = projMatrix * view; // Vector3f after projective divide
-
-      Vector3f screen = viewportTransform(clip, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-      transformedData[i] = {screen, cubeVertices[i].color, cubeVertices[i].u,
-                            cubeVertices[i].v};
+      float wClip = -view.z; // get w
+      if (std::abs(wClip) < 1e-6f)
+        wClip = 1e-6f;
+      vout.invW = 1.0f / wClip;
+      Vector3f ndc = projMatrix * view; // Vector3f after projective divide
+      vout.screenPos = viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
+      vout.screenPos.z = ndc.z;
+      vout.color = cubeVertices[i].color;
+      vout.colorDivW = vout.color * vout.invW;
+      vout.u = cubeVertices[i].u;
+      vout.v = cubeVertices[i].v;
+      verticesOut[i] = vout;
     }
 
     // draw triangles
     for (const auto &tri : cubeTriangles) {
-      const auto &d0 = transformedData[tri[0]];
-      const auto &d1 = transformedData[tri[1]];
-      const auto &d2 = transformedData[tri[2]];
+      const auto &d0 = verticesOut[tri[0]];
+      const auto &d1 = verticesOut[tri[1]];
+      const auto &d2 = verticesOut[tri[2]];
 
-      drawTriangle(d0.screen, d1.screen, d2.screen, d0.color, d1.color,
-                   d2.color, d0.u, d0.v, d1.u, d1.v, d2.u, d2.v, // UV
-                   framebuffer, depthBuffer, SCREEN_WIDTH, SCREEN_HEIGHT);
+      drawTriangle(d0, d1, d2,               //
+                   framebuffer, depthBuffer, //
+                   SCREEN_WIDTH, SCREEN_HEIGHT);
     }
 
     // === display ===
