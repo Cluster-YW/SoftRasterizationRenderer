@@ -1,5 +1,6 @@
 #include "core/matrix4x4f.h"
 #include "core/vector3f.h"
+#include "viewport.h"
 #include <SDL2/SDL.h>
 #include <cstdint>
 #include <iostream>
@@ -95,6 +96,29 @@ int main(int argc, char *argv[]) {
   const uint32_t GREEN = 0xFF00FF00;
   const uint32_t BLUE = 0xFF0000FF;
 
+  std::vector<Vector3f> cubeVertices = {
+      Vector3f(-1, -1, -1), // 0
+      Vector3f(1, -1, -1),  // 1
+      Vector3f(1, 1, -1),   // 2
+      Vector3f(-1, 1, -1),  // 3
+      Vector3f(-1, -1, 1),  // 4
+      Vector3f(1, -1, 1),   // 5
+      Vector3f(1, 1, 1),    // 6
+      Vector3f(-1, 1, 1)    // 7
+  };
+
+  std::vector<std::pair<int, int>> cubeEdges = {
+      {0, 1}, {1, 2}, {2, 3}, {3, 0}, // back
+      {4, 5}, {5, 6}, {6, 7}, {7, 4}, // front
+      {0, 4}, {1, 5}, {2, 6}, {3, 7}  // connection
+  };
+
+  Matrix4x4f modelMatrix = Matrix4x4f::identity();
+  Matrix4x4f viewMatrix = Matrix4x4f::lookAt(
+      Vector3f(3, 2, 5), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
+  Matrix4x4f projMatrix = Matrix4x4f::perspective(
+      45.0f * M_PI / 180.0f, (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
+
   // ********** Main loop **********
   while (!quit) {
 
@@ -105,23 +129,29 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // rendering
+    // === rendering ===
     // clear framebuffer
     std::fill(framebuffer.begin(), framebuffer.end(), 0x00000000);
 
-    int center_x = SCREEN_WIDTH / 2;
-    int center_y = SCREEN_HEIGHT / 2;
-    // draw a cross
-    draw_line(framebuffer, center_x - 50, center_y, center_x + 50, center_y,
-              RED);
-    draw_line(framebuffer, center_x, center_y - 50, center_x, center_y + 50,
-              GREEN);
+    // ======
 
-    // draw a rectangle
-    draw_line(framebuffer, 100, 100, 300, 100, BLUE);
-    draw_line(framebuffer, 300, 100, 300, 300, BLUE);
-    draw_line(framebuffer, 300, 300, 100, 300, BLUE);
-    draw_line(framebuffer, 100, 300, 100, 100, BLUE);
+    std::vector<Vector3f> transformedVertices(cubeVertices.size());
+    for (size_t i = 0; i < cubeVertices.size(); i++) {
+      Vector3f world = modelMatrix * cubeVertices[i];
+      Vector3f view = viewMatrix * world;
+      Vector3f clip = projMatrix * view;
+      Vector3f ndc = clip;
+
+      transformedVertices[i] =
+          viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
+    }
+
+    for (const auto &edge : cubeEdges) {
+      const Vector3f &p1 = transformedVertices[edge.first];
+      const Vector3f &p2 = transformedVertices[edge.second];
+      draw_line(framebuffer, (int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y,
+                0xFFFFFFFF); // 白色线
+    }
 
     // update texture
     SDL_UpdateTexture(texture, nullptr, framebuffer.data(),

@@ -262,3 +262,51 @@ const Matrix4x4f Matrix4x4f::ZERO([] {
   m.m.fill(0.0f);
   return m;
 }());
+
+Matrix4x4f Matrix4x4f::perspective(float fov, float aspect, float near,
+                                   float far) {
+  float tanHalfFov = tanf(fov / 2.0f);
+  Matrix4x4f mat = Matrix4x4f::ZERO;
+  /*
+  [ 1/asp*tan(Fov/2), 0,            0,            0
+    0,                1/tan(Fov/2), 0,            0
+    0,                0,            -(f+n)/(f-n), -1
+    0,                0,            -2*f*n/(f-n), 0 ]
+  */
+  mat(0, 0) = 1.0f / (aspect * tanHalfFov);
+  mat(1, 1) = 1.0f / (tanHalfFov);
+  mat(2, 2) = -(far + near) / (far - near);
+  mat(2, 3) = -1.0f;
+  mat(3, 2) = -2.0f * far * near / (far - near);
+  return mat;
+}
+
+Matrix4x4f Matrix4x4f::lookAt(const Vector3f &eye, const Vector3f &center,
+                              const Vector3f &up) {
+  // Base vectors of camera coordinate system
+  Vector3f f = (center - eye).normalized(); // fronthand vector(-z)
+  Vector3f s = f.cross(up).normalized();    // righthand vector(-x)
+  Vector3f u = s.cross(f);                  // up vector(y)
+
+  // Rotate
+  Matrix4x4f rot;
+  rot(0, 0) = s.x;
+  rot(1, 0) = s.y;
+  rot(2, 0) = s.z;
+  rot(3, 0) = 0.0f;
+  rot(0, 1) = u.x;
+  rot(1, 1) = u.y;
+  rot(2, 1) = u.z;
+  rot(3, 1) = 0.0f;
+  rot(0, 2) = -f.x;
+  rot(1, 2) = -f.y;
+  rot(2, 2) = -f.z;
+  rot(3, 2) = 0.0f;
+  rot(3, 3) = 1.0f;
+
+  // Translation
+  Matrix4x4f trans = Matrix4x4f::translation(-eye);
+
+  // Final matrix
+  return rot * trans;
+}
