@@ -1,4 +1,5 @@
 #include "core/matrix4x4f.h"
+#include "core/rasterizer.h"
 #include "core/vector3f.h"
 #include "core/vertex.h"
 #include "viewport.h"
@@ -90,6 +91,7 @@ int main(int argc, char *argv[]) {
   // ********** SoftRasterizationRenderer initialization **********
 
   Framebuffer framebuffer(SCREEN_WIDTH * SCREEN_HEIGHT, 0x00000000);
+  DepthBuffer depthBuffer(SCREEN_WIDTH, SCREEN_HEIGHT);
 
   bool quit = false;
   SDL_Event event;
@@ -140,37 +142,43 @@ int main(int argc, char *argv[]) {
         Matrix4x4f::rotationY(angle) * Matrix4x4f::rotationX(angle * 0.5f);
 
     // === rendering ===
-    // clear framebuffer
-    std::fill(framebuffer.begin(), framebuffer.end(), 0x00000000);
+    std::fill(framebuffer.begin(), framebuffer.end(),
+              0x00000000); // clear framebuffer
+    depthBuffer.clear();   // clear depth buffer
 
-    // ======
     std::vector<Vector3f> transformedPositions(cubeVertices.size());
     std::vector<Vector3f> transformedColors(cubeVertices.size());
 
+    std::vector<Vector3f> screenPositions(cubeVertices.size()); // 屏幕坐标+深度
+    std::vector<Vector3f> vertexColors(cubeVertices.size());    // 颜色
+
     for (size_t i = 0; i < cubeVertices.size(); i++) {
+      // MVP
       Vector3f world = modelMatrix * cubeVertices[i].position;
       Vector3f view = viewMatrix * world;
-      Vector3f clip = projMatrix * view;
-      Vector3f ndc = clip;
+      Vector3f clip = projMatrix * view; // Vector3f after projective divide
 
-      transformedPositions[i] =
-          viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
-      transformedColors[i] = cubeVertices[i].color;
+      Vector3f screen = viewportTransform(clip, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+      screenPositions[i] = screen; // screen.z is NDC Z [-1,1]
+      vertexColors[i] = cubeVertices[i].color;
     }
 
+    // draw triangles
     for (const auto &tri : cubeTriangles) {
-      const Vector3f &p0 = transformedPositions[tri[0]];
-      const Vector3f &p1 = transformedPositions[tri[1]];
-      const Vector3f &p2 = transformedPositions[tri[2]];
+      const Vector3f &p0 = screenPositions[tri[0]];
+      const Vector3f &p1 = screenPositions[tri[1]];
+      const Vector3f &p2 = screenPositions[tri[2]];
 
-      // 绘制三角形的三条边（白色，暂时）
-      draw_line(framebuffer, (int)p0.x, (int)p0.y, (int)p1.x, (int)p1.y,
-                0xFFFFFFFF);
-      draw_line(framebuffer, (int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y,
-                0xFFFFFFFF);
-      draw_line(framebuffer, (int)p2.x, (int)p2.y, (int)p0.x, (int)p0.y,
-                0xFFFFFFFF);
+      const Vector3f &c0 = vertexColors[tri[0]];
+      const Vector3f &c1 = vertexColors[tri[1]];
+      const Vector3f &c2 = vertexColors[tri[2]];
+
+      drawTriangle(p0, p1, p2, c0, c1, c2, framebuffer, depthBuffer,
+                   SCREEN_WIDTH, SCREEN_HEIGHT);
     }
+
+    // === display ===
 
     // update texture
     SDL_UpdateTexture(texture, nullptr, framebuffer.data(),
