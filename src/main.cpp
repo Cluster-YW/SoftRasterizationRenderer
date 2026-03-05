@@ -1,8 +1,10 @@
+#include "core/camera.h"
 #include "core/matrix4x4f.h"
 #include "core/rasterizer.h"
 #include "core/vector3f.h"
 #include "core/vertex.h"
 #include "viewport.h"
+
 #include <SDL2/SDL.h>
 #include <array>
 #include <cstdint>
@@ -94,6 +96,16 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // ********* Camera initialization **********
+  Camera camera(Vector3f(0.0f, 0.0f, 5.0f));
+
+  bool firstMouse = true;
+  float lastX = SCREEN_WIDTH / 2.0f;
+  float lastY = SCREEN_HEIGHT / 2.0f;
+  bool mouseLocked = true;
+
+  Uint32 lastTime = SDL_GetTicks(); // time control
+
   // ********** SoftRasterizationRenderer initialization **********
 
   Framebuffer framebuffer(SCREEN_WIDTH * SCREEN_HEIGHT, 0x00000000);
@@ -101,6 +113,8 @@ int main(int argc, char *argv[]) {
 
   bool quit = false;
   SDL_Event event;
+  SDL_SetRelativeMouseMode(SDL_TRUE);
+  mouseLocked = true;
 
   const uint32_t RED = 0xFFFF0000;
   const uint32_t GREEN = 0xFF00FF00;
@@ -135,19 +149,69 @@ int main(int argc, char *argv[]) {
   // ********** Main loop **********
   while (!quit) {
 
-    // event handling
+    // ==== time control ====
+
+    Uint32 currentTime = SDL_GetTicks();
+    float deltaTime = (currentTime - lastTime) / 1000.0f; // 转换为秒
+    lastTime = currentTime;
+
+    if (deltaTime > 0.1f) // avoid too large deltaTime
+      deltaTime = 0.1f;
+
+    // ==== event handling ====
+
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
         quit = true;
+      } else if (event.type == SDL_KEYDOWN) {
+        if (event.key.keysym.sym == SDLK_ESCAPE) {
+          mouseLocked = !mouseLocked; // toggle mouse lock
+          if (mouseLocked) {
+            SDL_SetRelativeMouseMode(SDL_TRUE); // hide cursor
+          } else {
+            SDL_SetRelativeMouseMode(SDL_FALSE); // show cursor
+          }
+        }
+      } else if (event.type == SDL_MOUSEMOTION && mouseLocked) {
+        float xoffset = event.motion.xrel;
+        float yoffset = -event.motion.yrel;
+
+        camera.processMouseMovement(xoffset, yoffset);
+      } else if (event.type == SDL_MOUSEWHEEL) {
+        camera.processMouseScroll(event.wheel.y);
       }
     }
 
-    // update model matrix
-    angle += 0.01f;
-    Matrix4x4f modelMatrix =
+    const Uint8 *keystates = SDL_GetKeyboardState(NULL);
+    if (mouseLocked) {
+
+      if (keystates[SDL_SCANCODE_W])
+        camera.processKeyboard(0, deltaTime);
+      if (keystates[SDL_SCANCODE_S])
+        camera.processKeyboard(1, deltaTime);
+      if (keystates[SDL_SCANCODE_A])
+        camera.processKeyboard(2, deltaTime);
+      if (keystates[SDL_SCANCODE_D])
+        camera.processKeyboard(3, deltaTime);
+      if (keystates[SDL_SCANCODE_Q])
+        camera.position.y -= camera.movementSpeed * deltaTime;
+      if (keystates[SDL_SCANCODE_E])
+        camera.position.y += camera.movementSpeed * deltaTime;
+    }
+
+    // update matrix
+    angle += 0.01f * deltaTime;
+    modelMatrix =
         Matrix4x4f::rotationY(angle) * Matrix4x4f::rotationX(angle * 0.5f);
 
-    // === rendering ===
+    viewMatrix = camera.getViewMatrix();
+
+    float aspect = static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT;
+    projMatrix =
+        Matrix4x4f::perspective(camera.zoom * M_PI / 180.0f, // zoom是角度
+                                aspect, 0.1f, 100.0f);
+
+    // ==== render ====
     std::fill(framebuffer.begin(), framebuffer.end(),
               0x00000000); // clear framebuffer
     depthBuffer.clear();   // clear depth buffer
