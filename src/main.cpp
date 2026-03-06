@@ -220,6 +220,8 @@ int main(int argc, char *argv[]) {
   Vector3f lightDir(1.0f, -1.0f, -1.0f); // 从左上方照射
   lightDir.normalize();
 
+  float ambient = 0.2f;
+
   // ********** Main loop **********
   while (!quit) {
 
@@ -273,6 +275,12 @@ int main(int argc, char *argv[]) {
         camera.position.y += camera.movementSpeed * deltaTime;
     }
 
+    // ================
+    // ==== Render ====
+    std::fill(framebuffer.begin(), framebuffer.end(),
+              0x00000000); // clear framebuffer
+    depthBuffer.clear();   // clear depth buffer
+
     // update matrix
     angle += 0.05f * deltaTime;
     modelMatrix =
@@ -286,47 +294,59 @@ int main(int argc, char *argv[]) {
                                 aspect, 0.1f, 100.0f);
     Matrix4x4f normalMat = modelMatrix.normalMatrix();
 
-    // ==== render ====
-    std::fill(framebuffer.begin(), framebuffer.end(),
-              0x00000000); // clear framebuffer
-    depthBuffer.clear();   // clear depth buffer
-
+    // ==== Vertex Processing ====
     std::vector<VertexOut> verticesOut(cubeVertices.size());
 
     for (size_t i = 0; i < cubeVertices.size(); i++) {
       VertexOut vout;
-      // MVP
+      // model transform
       Vector3f world = modelMatrix * cubeVertices[i].position;
+      Vector3f worldNormal = normalMat * cubeVertices[i].normal;
+      worldNormal.normalize();
+
+      // **Gouraud Shading**
+      float diff = std::max(0.0f, worldNormal.dot(-lightDir));
+      Vector3f baseColor = cubeVertices[i].color;
+      Vector3f litColor = baseColor * (ambient + diff);
+
+      // viewport transform
       Vector3f view = viewMatrix * world;
+
+      // projection transform
       float wClip = -view.z; // get w
       if (std::abs(wClip) < 1e-6f)
         wClip = 1e-6f;
       vout.invW = 1.0f / wClip;
-      Vector3f ndc = projMatrix * view; // Vector3f after projective divide
+
+      Vector3f ndc = projMatrix * view;
       vout.screenPos = viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
       vout.screenPos.z = ndc.z;
-      vout.color = cubeVertices[i].color;
+
+      // output color after lighting
+      vout.color = litColor;
       vout.colorDivW = vout.color * vout.invW;
+
       vout.u = cubeVertices[i].u;
       vout.v = cubeVertices[i].v;
-      vout.normal = normalMat * cubeVertices[i].normal;
-      vout.normal.normalize();
+
+      vout.normal = worldNormal;
+
       verticesOut[i] = vout;
     }
 
-    // draw triangles
+    // ==== Rasterization ====
     for (const auto &tri : cubeTriangles) {
       const auto &d0 = verticesOut[tri[0]];
       const auto &d1 = verticesOut[tri[1]];
       const auto &d2 = verticesOut[tri[2]];
 
       drawTriangle(d0, d1, d2,               //
-                   lightDir,                 //
+                                             //  lightDir,                 //
                    framebuffer, depthBuffer, //
                    SCREEN_WIDTH, SCREEN_HEIGHT);
     }
 
-    // === display ===
+    // === Display ===
 
     // update texture
     SDL_UpdateTexture(texture, nullptr, framebuffer.data(),

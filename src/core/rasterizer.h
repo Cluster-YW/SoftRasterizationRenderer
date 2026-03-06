@@ -43,12 +43,13 @@ public:
   }
 };
 
-inline void drawTriangle(
-    const VertexOut &v0, const VertexOut &v1, const VertexOut &v2,
-    const Vector3f
-        &lightDir, // light direction (world space, normalized, to light source)
-    std::vector<uint32_t> &framebuffer, DepthBuffer &depthBuffer, int width,
-    int height) {
+inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
+                         const VertexOut &v2,
+                         // const Vector3f
+                         //     &lightDir, // light direction (world space,
+                         //     normalized, to light source)
+                         std::vector<uint32_t> &framebuffer,
+                         DepthBuffer &depthBuffer, int width, int height) {
   // AABB
   int minX = static_cast<int>(
       std::floor(std::min({v0.screenPos.x, v1.screenPos.x, v2.screenPos.x})));
@@ -70,10 +71,10 @@ inline void drawTriangle(
   // l is the light direction (normalized)
 
   // average normal of the triangle
-  Vector3f faceNormal = (v0.normal + v1.normal + v2.normal).normalized();
+  // Vector3f faceNormal = (v0.normal + v1.normal + v2.normal).normalized();
 
-  float diff = std::max(0.0f, faceNormal.dot(-lightDir));
-  float amb = 0.2f; // ambient lighting
+  // float diff = std::max(0.0f, faceNormal.dot(-lightDir));
+  // float amb = 0.2f; // ambient lighting
 
   // for each pixel in the AABB
   for (int x = minX; x <= maxX; ++x) {
@@ -118,24 +119,10 @@ inline void drawTriangle(
                    v2.v * v2.invW * bc.z) *
                   corrFactor;
 
-        // 0-1 5 grid
-        Vector3f uvColor = ((static_cast<int>(std::abs(std::floor(u * 5.0f))) +
-                             static_cast<int>(std::abs(std::floor(v * 5.0f)))) %
-                                2 ==
-                            0)
-                               ? Vector3f(1.0f, 1.0f, 1.0f)
-                               : Vector3f(0.0f, 0.0f, 0.0f);
-
-        baseColor = uvColor * 0.5f + baseColor * 0.5f;
-
-        Vector3f litColor = baseColor * (amb + diff);
-        litColor.x = std::min(std::max(litColor.x, 0.0f), 1.0f);
-        litColor.y = std::min(std::max(litColor.y, 0.0f), 1.0f);
-        litColor.z = std::min(std::max(litColor.z, 0.0f), 1.0f);
-
-        uint8_t r = static_cast<uint8_t>(litColor.x * 255.0f);
-        uint8_t g = static_cast<uint8_t>(litColor.y * 255.0f);
-        uint8_t b = static_cast<uint8_t>(litColor.z * 255.0f);
+        baseColor = baseColor.clamp(0, 1.0f);
+        uint8_t r = static_cast<uint8_t>(baseColor.x * 255.0f);
+        uint8_t g = static_cast<uint8_t>(baseColor.y * 255.0f);
+        uint8_t b = static_cast<uint8_t>(baseColor.z * 255.0f);
         uint32_t pixel = 0xFF000000 | (r << 16) | (g << 8) | b; // ARGB
 
         framebuffer[y * width + x] = pixel;
