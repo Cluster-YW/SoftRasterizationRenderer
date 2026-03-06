@@ -53,6 +53,11 @@ public:
 
   Matrix4x4f inverse() const;
 
+  // ---------- Utility ----------
+  // Get the normal matrix (inverse transpose)
+  // M.normalMatrix() == (M^-1)^T
+  Matrix4x4f normalMatrix() const;
+
   // ---------- Static Transform Matrices ----------
   // Create a translation matrix from a vector
   static Matrix4x4f translation(const Vector3f &t);

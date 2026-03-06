@@ -11,6 +11,7 @@
 struct VertexOut {
   Vector3f screenPos; // x, y: screen_coord, z: NDC Z [-1,1]
   Vector3f color;     // raw_color
+  Vector3f normal;    // normal (world space)
   float u, v;         // texture coordinate
   float invW;         // 1/w
 
@@ -42,10 +43,12 @@ public:
   }
 };
 
-inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
-                         const VertexOut &v2,
-                         std::vector<uint32_t> &framebuffer,
-                         DepthBuffer &depthBuffer, int width, int height) {
+inline void drawTriangle(
+    const VertexOut &v0, const VertexOut &v1, const VertexOut &v2,
+    const Vector3f
+        &lightDir, // light direction (world space, normalized, to light source)
+    std::vector<uint32_t> &framebuffer, DepthBuffer &depthBuffer, int width,
+    int height) {
   // AABB
   int minX = static_cast<int>(
       std::floor(std::min({v0.screenPos.x, v1.screenPos.x, v2.screenPos.x})));
@@ -61,6 +64,16 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
   maxX = std::min(maxX, width - 1);
   minY = std::max(minY, 0);
   maxY = std::min(maxY, height - 1);
+
+  // ---- Flat Shading ---
+  // I = I_amb + I_diff * max(0, n·l)
+  // l is the light direction (normalized)
+
+  // average normal of the triangle
+  Vector3f faceNormal = (v0.normal + v1.normal + v2.normal).normalized();
+
+  float diff = std::max(0.0f, faceNormal.dot(-lightDir));
+  float amb = 0.2f; // ambient lighting
 
   // for each pixel in the AABB
   for (int x = minX; x <= maxX; ++x) {
@@ -93,7 +106,7 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
 
       if (depth < depthBuffer.get(x, y)) {
 
-        Vector3f color =
+        Vector3f baseColor =
             (v0.colorDivW * bc.x + v1.colorDivW * bc.y + v2.colorDivW * bc.z) *
             corrFactor;
         float u = (v0.u * v0.invW * bc.x + //
@@ -113,11 +126,16 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
                                ? Vector3f(1.0f, 1.0f, 1.0f)
                                : Vector3f(0.0f, 0.0f, 0.0f);
 
-        color = uvColor * 0.5f + color * 0.5f;
+        baseColor = uvColor * 0.5f + baseColor * 0.5f;
 
-        uint8_t r = static_cast<uint8_t>(color.x * 255.0f);
-        uint8_t g = static_cast<uint8_t>(color.y * 255.0f);
-        uint8_t b = static_cast<uint8_t>(color.z * 255.0f);
+        Vector3f litColor = baseColor * (amb + diff);
+        litColor.x = std::min(std::max(litColor.x, 0.0f), 1.0f);
+        litColor.y = std::min(std::max(litColor.y, 0.0f), 1.0f);
+        litColor.z = std::min(std::max(litColor.z, 0.0f), 1.0f);
+
+        uint8_t r = static_cast<uint8_t>(litColor.x * 255.0f);
+        uint8_t g = static_cast<uint8_t>(litColor.y * 255.0f);
+        uint8_t b = static_cast<uint8_t>(litColor.z * 255.0f);
         uint32_t pixel = 0xFF000000 | (r << 16) | (g << 8) | b; // ARGB
 
         framebuffer[y * width + x] = pixel;

@@ -120,23 +120,94 @@ int main(int argc, char *argv[]) {
   const uint32_t GREEN = 0xFF00FF00;
   const uint32_t BLUE = 0xFF0000FF;
 
+  // 立方体顶点：位置、颜色、法线（当前为面法线，每个面法线垂直于该面）
+  // 为每个面单独设置顶点（每个位置有3个顶点）
   std::vector<Vertex> cubeVertices = {
-      // (z = -1)
-      Vertex(Vector3f(-1, -1, -1), Vector3f(1, 0, 0), 0.0f, 0.0f), // 0
-      Vertex(Vector3f(1, -1, -1), Vector3f(0, 1, 0), 1.0f, 0.0f),  // 1
-      Vertex(Vector3f(1, 1, -1), Vector3f(0, 0, 1), 1.0f, 1.0f),   // 2
-      Vertex(Vector3f(-1, 1, -1), Vector3f(1, 1, 0), 0.0f, 1.0f),  // 3
+      // 后面 (z = -1)，法线 (0, 0, -1)
+      Vertex(Vector3f(-1, -1, -1), Vector3f(1.0f, 0.2f, 0.2f),
+             Vector3f(0, 0, -1), 0, 0), // 0: 红 (左下)
+      Vertex(Vector3f(1, -1, -1), Vector3f(0.2f, 1.0f, 0.2f),
+             Vector3f(0, 0, -1), 1, 0), // 1: 绿 (右下)
+      Vertex(Vector3f(1, 1, -1), Vector3f(0.2f, 0.2f, 1.0f), Vector3f(0, 0, -1),
+             1, 1), // 2: 蓝 (右上)
+      Vertex(Vector3f(-1, 1, -1), Vector3f(1.0f, 1.0f, 0.2f),
+             Vector3f(0, 0, -1), 0, 1), // 3: 黄 (左上)
 
-      // (z = 1)
-      Vertex(Vector3f(-1, -1, 1), Vector3f(1, 0, 1), 0.0f, 0.0f),     // 4
-      Vertex(Vector3f(1, -1, 1), Vector3f(0, 1, 1), 1.0f, 0.0f),      // 5
-      Vertex(Vector3f(1, 1, 1), Vector3f(1, 1, 1), 1.0f, 1.0f),       // 6
-      Vertex(Vector3f(-1, 1, 1), Vector3f(0.5, 0.5, 0.5), 0.0f, 1.0f) // 7
+      // 前面 (z = 1)，法线 (0, 0, 1)
+      Vertex(Vector3f(-1, -1, 1), Vector3f(1.0f, 0.2f, 1.0f), Vector3f(0, 0, 1),
+             0, 0), // 4: 紫 (左下)
+      Vertex(Vector3f(1, -1, 1), Vector3f(0.2f, 1.0f, 1.0f), Vector3f(0, 0, 1),
+             1, 0), // 5: 青 (右下)
+      Vertex(Vector3f(1, 1, 1), Vector3f(1.0f, 1.0f, 1.0f), Vector3f(0, 0, 1),
+             1, 1), // 6: 白 (右上)
+      Vertex(Vector3f(-1, 1, 1), Vector3f(0.5f, 0.5f, 0.5f), Vector3f(0, 0, 1),
+             0, 1), // 7: 灰 (左上)
+
+      // 左面 (x = -1)，法线 (-1, 0, 0)
+      // 从左侧看：z=1 是右，z=-1 是左，y=-1 是下，y=1 是上
+      Vertex(Vector3f(-1, -1, -1), Vector3f(0.8f, 0.2f, 0.2f),
+             Vector3f(-1, 0, 0), 0, 0), // 8: 左下后 (0,0)
+      Vertex(Vector3f(-1, -1, 1), Vector3f(0.8f, 0.2f, 0.8f),
+             Vector3f(-1, 0, 0), 1, 0), // 9: 左下前 (1,0)
+      Vertex(Vector3f(-1, 1, 1), Vector3f(0.5f, 0.5f, 0.5f), Vector3f(-1, 0, 0),
+             1, 1), // 10: 左上前 (1,1)
+      Vertex(Vector3f(-1, 1, -1), Vector3f(0.8f, 0.8f, 0.2f),
+             Vector3f(-1, 0, 0), 0, 1), // 11: 左上后 (0,1)
+
+      // 右面 (x = 1)，法线 (1, 0, 0)
+      // 从右侧看：z=-1 是右，z=1 是左，y=-1 是下，y=1 是上
+      Vertex(Vector3f(1, -1, -1), Vector3f(0.2f, 0.8f, 0.2f), Vector3f(1, 0, 0),
+             1, 0), // 12: 右下后 (1,0) - 注意顺序与三角形索引匹配
+      Vertex(Vector3f(1, 1, -1), Vector3f(0.2f, 0.2f, 0.8f), Vector3f(1, 0, 0),
+             1, 1), // 13: 右上后 (1,1)
+      Vertex(Vector3f(1, 1, 1), Vector3f(0.8f, 0.8f, 0.8f), Vector3f(1, 0, 0),
+             0, 1), // 14: 右上前 (0,1)
+      Vertex(Vector3f(1, -1, 1), Vector3f(0.2f, 0.8f, 0.8f), Vector3f(1, 0, 0),
+             0, 0), // 15: 右下前 (0,0)
+
+      // 底面 (y = -1)，法线 (0, -1, 0)
+      // 从下方看：x=-1 是左，x=1 是右，z=1 是上，z=-1
+      // 是下（或者反过来，只要一致即可）
+      Vertex(Vector3f(-1, -1, -1), Vector3f(0.3f, 0.3f, 0.3f),
+             Vector3f(0, -1, 0), 0, 0), // 16: 左下后 (0,0)
+      Vertex(Vector3f(1, -1, -1), Vector3f(0.3f, 0.5f, 0.3f),
+             Vector3f(0, -1, 0), 1, 0), // 17: 右下后 (1,0)
+      Vertex(Vector3f(1, -1, 1), Vector3f(0.3f, 0.3f, 0.5f), Vector3f(0, -1, 0),
+             1, 1), // 18: 右下前 (1,1)
+      Vertex(Vector3f(-1, -1, 1), Vector3f(0.5f, 0.3f, 0.3f),
+             Vector3f(0, -1, 0), 0, 1), // 19: 左下前 (0,1)
+
+      // 顶面 (y = 1)，法线 (0, 1, 0)
+      // 从上方看：x=-1 是左，x=1 是右，z=-1 是下，z=1 是上
+      Vertex(Vector3f(-1, 1, -1), Vector3f(0.9f, 0.9f, 0.2f), Vector3f(0, 1, 0),
+             0, 0), // 20: 左上后 (0,0)
+      Vertex(Vector3f(-1, 1, 1), Vector3f(0.9f, 0.2f, 0.9f), Vector3f(0, 1, 0),
+             0, 1), // 21: 左上前 (0,1) - 注意V坐标与底面相反
+      Vertex(Vector3f(1, 1, 1), Vector3f(0.2f, 0.9f, 0.9f), Vector3f(0, 1, 0),
+             1, 1), // 22: 右上前 (1,1)
+      Vertex(Vector3f(1, 1, -1), Vector3f(0.2f, 0.2f, 0.9f), Vector3f(0, 1, 0),
+             1, 0) // 23: 右上后 (1,0)
   };
 
   std::vector<std::array<int, 3>> cubeTriangles = {
-      {0, 2, 1}, {0, 3, 2}, {4, 5, 6}, {4, 6, 7}, {0, 4, 7}, {0, 7, 3},
-      {1, 2, 6}, {1, 6, 5}, {0, 1, 5}, {0, 5, 4}, {3, 7, 6}, {3, 6, 2}};
+      // 后面 (0,1,2,3)
+      {0, 2, 1},
+      {0, 3, 2},
+      // 前面 (4,5,6,7)
+      {4, 5, 6},
+      {4, 6, 7},
+      // 左面 (8,9,10,11) - 注意索引偏移
+      {8, 9, 10},
+      {8, 10, 11},
+      // 右面 (12,13,14,15)
+      {12, 13, 14},
+      {12, 14, 15},
+      // 底面 (16,17,18,19)
+      {16, 17, 18},
+      {16, 18, 19},
+      // 顶面 (20,21,22,23)
+      {20, 21, 22},
+      {20, 22, 23}};
 
   Matrix4x4f modelMatrix = Matrix4x4f::identity();
   Matrix4x4f viewMatrix = Matrix4x4f::lookAt(
@@ -145,6 +216,9 @@ int main(int argc, char *argv[]) {
       45.0f * M_PI / 180.0f, (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
 
   float angle = 0.0f;
+
+  Vector3f lightDir(1.0f, -1.0f, -1.0f); // 从左上方照射
+  lightDir.normalize();
 
   // ********** Main loop **********
   while (!quit) {
@@ -200,7 +274,7 @@ int main(int argc, char *argv[]) {
     }
 
     // update matrix
-    angle += 0.01f * deltaTime;
+    angle += 0.05f * deltaTime;
     modelMatrix =
         Matrix4x4f::rotationY(angle) * Matrix4x4f::rotationX(angle * 0.5f);
 
@@ -210,6 +284,7 @@ int main(int argc, char *argv[]) {
     projMatrix =
         Matrix4x4f::perspective(camera.zoom * M_PI / 180.0f, // zoom是角度
                                 aspect, 0.1f, 100.0f);
+    Matrix4x4f normalMat = modelMatrix.normalMatrix();
 
     // ==== render ====
     std::fill(framebuffer.begin(), framebuffer.end(),
@@ -234,6 +309,8 @@ int main(int argc, char *argv[]) {
       vout.colorDivW = vout.color * vout.invW;
       vout.u = cubeVertices[i].u;
       vout.v = cubeVertices[i].v;
+      vout.normal = normalMat * cubeVertices[i].normal;
+      vout.normal.normalize();
       verticesOut[i] = vout;
     }
 
@@ -244,6 +321,7 @@ int main(int argc, char *argv[]) {
       const auto &d2 = verticesOut[tri[2]];
 
       drawTriangle(d0, d1, d2,               //
+                   lightDir,                 //
                    framebuffer, depthBuffer, //
                    SCREEN_WIDTH, SCREEN_HEIGHT);
     }

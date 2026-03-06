@@ -1,4 +1,5 @@
 #include "Matrix4x4f.h"
+#include "matrix4x4f.h"
 #include <cassert>
 #include <cmath>
 
@@ -309,4 +310,9 @@ Matrix4x4f Matrix4x4f::lookAt(const Vector3f &eye, const Vector3f &center,
 
   // Final matrix
   return rot * trans;
+}
+
+Matrix4x4f Matrix4x4f::normalMatrix() const {
+  Matrix4x4f inv = this->inverse();
+  return inv.transposed();
 }
