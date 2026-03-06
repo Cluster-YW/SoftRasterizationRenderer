@@ -1,3 +1,4 @@
+#include "SDL2/SDL_keycode.h"
 #include "core/camera.h"
 #include "core/matrix4x4f.h"
 #include "core/rasterizer.h"
@@ -13,6 +14,10 @@
 
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
+
+bool debug_ShowNormals = false;
+const float NORMAL_DISPLAY_LENGTH = 0.1f;
+const uint32_t NORMAL_COLOR = 0xFF00FF00; // Green
 
 using Framebuffer = std::vector<uint32_t>;
 
@@ -248,6 +253,11 @@ int main(int argc, char *argv[]) {
             SDL_SetRelativeMouseMode(SDL_FALSE); // show cursor
           }
         }
+        if (event.key.keysym.sym == SDLK_n) {
+          debug_ShowNormals = !debug_ShowNormals;
+          std::cout << "Normal visualization: "
+                    << (debug_ShowNormals ? "ON" : "OFF") << std::endl;
+        }
       } else if (event.type == SDL_MOUSEMOTION && mouseLocked) {
         float xoffset = event.motion.xrel;
         float yoffset = -event.motion.yrel;
@@ -260,7 +270,6 @@ int main(int argc, char *argv[]) {
 
     const Uint8 *keystates = SDL_GetKeyboardState(NULL);
     if (mouseLocked) {
-
       if (keystates[SDL_SCANCODE_W])
         camera.processKeyboard(0, deltaTime);
       if (keystates[SDL_SCANCODE_S])
@@ -293,6 +302,13 @@ int main(int argc, char *argv[]) {
         Matrix4x4f::perspective(camera.zoom * M_PI / 180.0f, // zoom是角度
                                 aspect, 0.1f, 100.0f);
     Matrix4x4f normalMat = modelMatrix.normalMatrix();
+
+    struct NormalLine {
+      Vector3f start;
+      Vector3f end;
+    };
+    std::vector<NormalLine> normalLines;
+    normalLines.reserve(cubeVertices.size());
 
     // ==== Vertex Processing ====
     std::vector<VertexOut> verticesOut(cubeVertices.size());
@@ -332,6 +348,17 @@ int main(int argc, char *argv[]) {
       vout.normal = worldNormal;
 
       verticesOut[i] = vout;
+
+      if (debug_ShowNormals) {
+        // vertex -> vertex + normal * length (=normal tip)
+        Vector3f normalTipWorld = world + worldNormal * NORMAL_DISPLAY_LENGTH;
+        Vector3f normalTipView = viewMatrix * normalTipWorld;
+        Vector3f normalTipNdc = projMatrix * normalTipView;
+        Vector3f normalTipScreen =
+            viewportTransform(normalTipNdc, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+        normalLines.push_back({vout.screenPos, normalTipScreen});
+      }
     }
 
     // ==== Rasterization ====
@@ -344,6 +371,24 @@ int main(int argc, char *argv[]) {
                                              //  lightDir,                 //
                    framebuffer, depthBuffer, //
                    SCREEN_WIDTH, SCREEN_HEIGHT);
+    }
+
+    // ==== Debug visualization ====
+    if (debug_ShowNormals) {
+      for (const auto &line : normalLines) {
+        int x0 = static_cast<int>(line.start.x);
+        int y0 = static_cast<int>(line.start.y);
+        int x1 = static_cast<int>(line.end.x);
+        int y1 = static_cast<int>(line.end.y);
+
+        // clip
+        auto inScreen = [&](int x, int y) {
+          return x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT;
+        };
+
+        if (inScreen(x0, y0) && inScreen(x1, y1))
+          draw_line(framebuffer, x0, y0, x1, y1, NORMAL_COLOR);
+      }
     }
 
     // === Display ===
