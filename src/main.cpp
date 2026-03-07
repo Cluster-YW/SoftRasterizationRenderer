@@ -296,15 +296,15 @@ int main(int argc, char *argv[]) {
 
     for (size_t i = 0; i < cubeVertices.size(); i++) {
       VertexOut vout;
-      // model transform
+      // model transform => to world space
       Vector3f world = modelMatrix * cubeVertices[i].position;
       Vector3f worldNormal = normalMat * cubeVertices[i].normal;
       worldNormal.normalize();
 
       // **Gouraud Shading**
       float diff = std::max(0.0f, worldNormal.dot(-lightDir));
-      Vector3f baseColor = cubeVertices[i].color;
-      Vector3f litColor = baseColor * (ambient + diff);
+      vout.light = Vector3f(ambient + diff, ambient + diff, ambient + diff);
+      vout.albedo = cubeVertices[i].color;
 
       // viewport transform
       Vector3f view = viewMatrix * world;
@@ -319,14 +319,13 @@ int main(int argc, char *argv[]) {
       vout.screenPos = viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
       vout.screenPos.z = ndc.z;
 
-      // output color after lighting
-      vout.color = litColor;
-      vout.colorDivW = vout.color * vout.invW;
-
       vout.texcoord = cubeVertices[i].texcoord;
-      vout.texcoordDivW = vout.texcoord * vout.invW;
-
       vout.normal = worldNormal;
+
+      // pre-calculate for later use
+      vout.albedoDivW = vout.albedo * vout.invW;
+      vout.lightDivW = vout.light * vout.invW;
+      vout.texcoordDivW = vout.texcoord * vout.invW;
 
       verticesOut[i] = vout;
 

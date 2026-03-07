@@ -12,14 +12,16 @@
 // Vertex data for rasterization
 struct VertexOut {
   Vector3f screenPos; // x, y: screen_coord, z: NDC Z [-1,1]
-  Vector3f color;     // raw_color
+  Vector3f albedo;    // raw_color
+  Vector3f light;     // light_color
   Vector3f normal;    // normal (world space)
   Vector2f texcoord;  // texture coordinate
   float invW;         // 1/w
 
-  Vector3f colorDivW; // color / w
-  float zDivW;        // z / w
+  float zDivW; // z / w
   Vector2f texcoordDivW;
+  Vector3f lightDivW;
+  Vector3f albedoDivW;
 };
 
 class DepthBuffer {
@@ -97,28 +99,37 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
       float corrFactor = 1.0f / sumInvW;
 
       // I = (λ0*I0/w0 + λ1*I1/w1 + λ2*I2/w2) / (λ0/w0 + λ1/w1 + λ2/w2)
-      float z = (v0.screenPos.z * v0.invW * bc.x + //
-                 v1.screenPos.z * v1.invW * bc.y + //
-                 v2.screenPos.z * v2.invW * bc.z) *
+      float z = (v0.screenPos.z * v0.invW * bc.x +  //
+                 v1.screenPos.z * v1.invW * bc.y +  //
+                 v2.screenPos.z * v2.invW * bc.z) * //
                 corrFactor;
       float depth = 0.5f * (z + 1.0f); // NDC Z [-1,1] -> [0,1]
 
-      if (depth >= depthBuffer.get(x, y))
+      if (depth >= depthBuffer.get(x, y)) // early depth test
         continue;
 
-      Vector3f finalColor;
-      if (useTexture) {
-        Vector2f uv = (v0.texcoordDivW * bc.x + v1.texcoordDivW * bc.y +
-                       v2.texcoordDivW * bc.z) *
+      Vector3f albedo = (v0.albedoDivW * bc.x +  //
+                         v1.albedoDivW * bc.y +  //
+                         v2.albedoDivW * bc.z) * //
+                        corrFactor;
+      Vector3f light = (v0.lightDivW * bc.x +  //
+                        v1.lightDivW * bc.y +  //
+                        v2.lightDivW * bc.z) * //
+                       corrFactor;
+
+      if (useTexture) {                          // overwrites albedo
+        Vector2f uv = (v0.texcoordDivW * bc.x +  //
+                       v1.texcoordDivW * bc.y +  //
+                       v2.texcoordDivW * bc.z) * //
                       corrFactor;
 
-        finalColor = texture.sample(uv.x, uv.y);
-      } else {
-
-        finalColor =
-            (v0.colorDivW * bc.x + v1.colorDivW * bc.y + v2.colorDivW * bc.z) *
-            corrFactor;
+        albedo = texture.sample(uv.x, uv.y);
       }
+
+      // mix light and albedo
+      Vector3f finalColor;
+      finalColor =
+          Vector3f(albedo.x * light.x, albedo.y * light.y, albedo.z * light.z);
 
       finalColor = finalColor.clamp(0, 1.0f);
       uint8_t r = static_cast<uint8_t>(finalColor.x * 255.0f);
