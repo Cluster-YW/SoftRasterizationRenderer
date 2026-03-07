@@ -123,7 +123,7 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
                        v2.texcoordDivW * bc.z) * //
                       corrFactor;
 
-        albedo = texture.sample(uv.x, uv.y);
+        albedo = texture.sampleNearest(uv.x, uv.y);
       }
 
       // mix light and albedo

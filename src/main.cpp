@@ -1,3 +1,5 @@
+#define STB_IMAGE_IMPLEMENTATION
+
 #include "SDL2/SDL_keycode.h"
 #include "core/camera.h"
 #include "core/matrix4x4f.h"
@@ -189,7 +191,12 @@ int main(int argc, char *argv[]) {
       {20, 22, 23}};
 
   Texture mytexture;
-  mytexture.createCheckerboard(512, 512, 64);
+  if (!mytexture.loadFromFile("../texture/mc_stone.png")) {
+    std::cerr
+        << "Warning: Failed to load texture, f alling back to checkerboard"
+        << std::endl;
+    mytexture.createCheckerboard(512, 512, 64);
+  }
 
   Matrix4x4f modelMatrix = Matrix4x4f::identity();
   Matrix4x4f viewMatrix = Matrix4x4f::lookAt(

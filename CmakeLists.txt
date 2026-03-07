@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SDL2_DIR "D:/Environment/SDL2/x86_64-w64-mingw32")
 
 include_directories(${SDL2_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/extern)
 
 add_executable(${PROJECT_NAME} 
     src/main.cpp 
