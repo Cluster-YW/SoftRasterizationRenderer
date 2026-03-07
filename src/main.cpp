@@ -3,6 +3,7 @@
 #include "SDL2/SDL_keycode.h"
 #include "core/camera.h"
 #include "core/matrix4x4f.h"
+#include "core/mesh.h"
 #include "core/rasterizer.h"
 #include "core/vector3f.h"
 #include "core/vertex.h"
@@ -107,7 +108,7 @@ int main(int argc, char *argv[]) {
   }
 
   // ********* Camera initialization **********
-  Camera camera(Vector3f(0.0f, 0.0f, 5.0f));
+  Camera camera(Vector3f(0.0f, 0.0f, 10.0f));
 
   bool firstMouse = true;
   float lastX = SCREEN_WIDTH / 2.0f;
@@ -130,65 +131,11 @@ int main(int argc, char *argv[]) {
   const uint32_t GREEN = 0xFF00FF00;
   const uint32_t BLUE = 0xFF0000FF;
 
-  // 立方体顶点：位置、颜色、法线（当前为面法线，每个面法线垂直于该面）
-  // 为每个面单独设置顶点（每个位置有3个顶点）
-  std::vector<Vertex> cubeVertices = {
-      // 后面 (z=-1)，法线 (0,0,-1)
-      // 位置, 法线, UV
-      Vertex(Vector3f(-1, -1, -1), Vector3f(0, 0, -1), Vector2f(0, 0)),
-      Vertex(Vector3f(1, -1, -1), Vector3f(0, 0, -1), Vector2f(1, 0)),
-      Vertex(Vector3f(1, 1, -1), Vector3f(0, 0, -1), Vector2f(1, 1)),
-      Vertex(Vector3f(-1, 1, -1), Vector3f(0, 0, -1), Vector2f(0, 1)),
-
-      // 前面 (z=1)，法线 (0,0,1)
-      Vertex(Vector3f(-1, -1, 1), Vector3f(0, 0, 1), Vector2f(0, 0)),
-      Vertex(Vector3f(1, -1, 1), Vector3f(0, 0, 1), Vector2f(1, 0)),
-      Vertex(Vector3f(1, 1, 1), Vector3f(0, 0, 1), Vector2f(1, 1)),
-      Vertex(Vector3f(-1, 1, 1), Vector3f(0, 0, 1), Vector2f(0, 1)),
-
-      // 左面 (x=-1)，法线 (-1,0,0)
-      Vertex(Vector3f(-1, -1, -1), Vector3f(-1, 0, 0), Vector2f(0, 0)),
-      Vertex(Vector3f(-1, -1, 1), Vector3f(-1, 0, 0), Vector2f(1, 0)),
-      Vertex(Vector3f(-1, 1, 1), Vector3f(-1, 0, 0), Vector2f(1, 1)),
-      Vertex(Vector3f(-1, 1, -1), Vector3f(-1, 0, 0), Vector2f(0, 1)),
-
-      // 右面 (x=1)，法线 (1,0,0)
-      Vertex(Vector3f(1, -1, -1), Vector3f(1, 0, 0), Vector2f(0, 0)),
-      Vertex(Vector3f(1, 1, -1), Vector3f(1, 0, 0), Vector2f(1, 0)),
-      Vertex(Vector3f(1, 1, 1), Vector3f(1, 0, 0), Vector2f(1, 1)),
-      Vertex(Vector3f(1, -1, 1), Vector3f(1, 0, 0), Vector2f(0, 1)),
-
-      // 底面 (y=-1)，法线 (0,-1,0)
-      Vertex(Vector3f(-1, -1, -1), Vector3f(0, -1, 0), Vector2f(0, 0)),
-      Vertex(Vector3f(1, -1, -1), Vector3f(0, -1, 0), Vector2f(1, 0)),
-      Vertex(Vector3f(1, -1, 1), Vector3f(0, -1, 0), Vector2f(1, 1)),
-      Vertex(Vector3f(-1, -1, 1), Vector3f(0, -1, 0), Vector2f(0, 1)),
-
-      // 顶面 (y=1)，法线 (0,1,0)
-      Vertex(Vector3f(-1, 1, -1), Vector3f(0, 1, 0), Vector2f(0, 0)),
-      Vertex(Vector3f(-1, 1, 1), Vector3f(0, 1, 0), Vector2f(1, 0)),
-      Vertex(Vector3f(1, 1, 1), Vector3f(0, 1, 0), Vector2f(1, 1)),
-      Vertex(Vector3f(1, 1, -1), Vector3f(0, 1, 0), Vector2f(0, 1))};
-
-  std::vector<std::array<int, 3>> cubeTriangles = {
-      // 后面 (0,1,2,3)
-      {0, 2, 1},
-      {0, 3, 2},
-      // 前面 (4,5,6,7)
-      {4, 5, 6},
-      {4, 6, 7},
-      // 左面 (8,9,10,11) - 注意索引偏移
-      {8, 9, 10},
-      {8, 10, 11},
-      // 右面 (12,13,14,15)
-      {12, 13, 14},
-      {12, 14, 15},
-      // 底面 (16,17,18,19)
-      {16, 17, 18},
-      {16, 18, 19},
-      // 顶面 (20,21,22,23)
-      {20, 21, 22},
-      {20, 22, 23}};
+  Mesh mesh;
+  if (!mesh.loadFromObj("../mesh/suzanne.obj")) {
+    std::cerr << "Failed to load mesh, falling back to procedural cube"
+              << std::endl;
+  }
 
   Texture mytexture;
   if (!mytexture.loadFromFile("../texture/mc_stone.png")) {
@@ -296,22 +243,22 @@ int main(int argc, char *argv[]) {
       Vector3f end;
     };
     std::vector<NormalLine> normalLines;
-    normalLines.reserve(cubeVertices.size());
+    normalLines.reserve(mesh.vertices.size());
 
     // ==== Vertex Processing ====
-    std::vector<VertexOut> verticesOut(cubeVertices.size());
+    std::vector<VertexOut> verticesOut(mesh.vertices.size());
 
-    for (size_t i = 0; i < cubeVertices.size(); i++) {
+    for (size_t i = 0; i < mesh.vertices.size(); i++) {
       VertexOut vout;
       // model transform => to world space
-      Vector3f world = modelMatrix * cubeVertices[i].position;
-      Vector3f worldNormal = normalMat * cubeVertices[i].normal;
+      Vector3f world = modelMatrix * mesh.vertices[i].position;
+      Vector3f worldNormal = normalMat * mesh.vertices[i].normal;
       worldNormal.normalize();
 
       // **Gouraud Shading**
       float diff = std::max(0.0f, worldNormal.dot(-lightDir));
       vout.light = Vector3f(ambient + diff, ambient + diff, ambient + diff);
-      vout.albedo = cubeVertices[i].color;
+      vout.albedo = mesh.vertices[i].color;
 
       // viewport transform
       Vector3f view = viewMatrix * world;
@@ -326,7 +273,7 @@ int main(int argc, char *argv[]) {
       vout.screenPos = viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
       vout.screenPos.z = ndc.z;
 
-      vout.texcoord = cubeVertices[i].texcoord;
+      vout.texcoord = mesh.vertices[i].texcoord;
       vout.normal = worldNormal;
 
       // pre-calculate for later use
@@ -349,14 +296,12 @@ int main(int argc, char *argv[]) {
     }
 
     // ==== Rasterization ====
-    for (const auto &tri : cubeTriangles) {
-      const auto &d0 = verticesOut[tri[0]];
-      const auto &d1 = verticesOut[tri[1]];
-      const auto &d2 = verticesOut[tri[2]];
-
-      drawTriangle(d0, d1, d2, //
-                   mytexture,
-                   useTexture,               //
+    for (size_t i = 0; i < mesh.indices.size(); i += 3) {
+      const VertexOut &d0 = verticesOut[mesh.indices[i + 0]];
+      const VertexOut &d1 = verticesOut[mesh.indices[i + 1]];
+      const VertexOut &d2 = verticesOut[mesh.indices[i + 2]];
+      drawTriangle(d0, d1, d2,               //
+                   mytexture, useTexture,    //
                    framebuffer, depthBuffer, //
                    SCREEN_WIDTH, SCREEN_HEIGHT);
     }
