@@ -1,19 +1,17 @@
 #pragma once
+#include "vector2f.h"
 #include "vector3f.h"
 
 struct Vertex {
   Vector3f position;
   Vector3f color;
   Vector3f normal;
-  float u, v;
+  Vector2f texcoord;
 
   // default constructor
-  Vertex()
-      : position(Vector3f()), color(Vector3f(1.0f, 1.0f, 1.0f)),
-        normal(Vector3f(0, 0, 1)), u(0), v(0) {}
+  Vertex() : position(), color(1, 1, 1), normal(0, 0, 1), texcoord(0, 0) {}
 
   // constructor with parameters
-  Vertex(const Vector3f &pos, const Vector3f &col, const Vector3f &nrm, float u,
-         float v)
-      : position(pos), color(col), normal(nrm), u(u), v(v) {}
+  Vertex(const Vector3f &pos, const Vector3f &nrm, const Vector2f &uv)
+      : position(pos), normal(nrm), color(1, 1, 1), texcoord(uv) {}
 };

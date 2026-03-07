@@ -15,6 +15,7 @@
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
 
+bool useTexture = true;
 bool debug_ShowNormals = false;
 const float NORMAL_DISPLAY_LENGTH = 0.1f;
 const uint32_t NORMAL_COLOR = 0xFF00FF00; // Green
@@ -22,6 +23,8 @@ const uint32_t NORMAL_COLOR = 0xFF00FF00; // Green
 using Framebuffer = std::vector<uint32_t>;
 
 void put_pixel(Framebuffer &framebuffer, int x, int y, uint32_t color) {
+  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT)
+    return;
   framebuffer[y * SCREEN_WIDTH + x] = color;
 }
 
@@ -128,71 +131,42 @@ int main(int argc, char *argv[]) {
   // 立方体顶点：位置、颜色、法线（当前为面法线，每个面法线垂直于该面）
   // 为每个面单独设置顶点（每个位置有3个顶点）
   std::vector<Vertex> cubeVertices = {
-      // 后面 (z = -1)，法线 (0, 0, -1)
-      Vertex(Vector3f(-1, -1, -1), Vector3f(1.0f, 0.2f, 0.2f),
-             Vector3f(0, 0, -1), 0, 0), // 0: 红 (左下)
-      Vertex(Vector3f(1, -1, -1), Vector3f(0.2f, 1.0f, 0.2f),
-             Vector3f(0, 0, -1), 1, 0), // 1: 绿 (右下)
-      Vertex(Vector3f(1, 1, -1), Vector3f(0.2f, 0.2f, 1.0f), Vector3f(0, 0, -1),
-             1, 1), // 2: 蓝 (右上)
-      Vertex(Vector3f(-1, 1, -1), Vector3f(1.0f, 1.0f, 0.2f),
-             Vector3f(0, 0, -1), 0, 1), // 3: 黄 (左上)
+      // 后面 (z=-1)，法线 (0,0,-1)
+      // 位置, 法线, UV
+      Vertex(Vector3f(-1, -1, -1), Vector3f(0, 0, -1), Vector2f(0, 0)),
+      Vertex(Vector3f(1, -1, -1), Vector3f(0, 0, -1), Vector2f(1, 0)),
+      Vertex(Vector3f(1, 1, -1), Vector3f(0, 0, -1), Vector2f(1, 1)),
+      Vertex(Vector3f(-1, 1, -1), Vector3f(0, 0, -1), Vector2f(0, 1)),
 
-      // 前面 (z = 1)，法线 (0, 0, 1)
-      Vertex(Vector3f(-1, -1, 1), Vector3f(1.0f, 0.2f, 1.0f), Vector3f(0, 0, 1),
-             0, 0), // 4: 紫 (左下)
-      Vertex(Vector3f(1, -1, 1), Vector3f(0.2f, 1.0f, 1.0f), Vector3f(0, 0, 1),
-             1, 0), // 5: 青 (右下)
-      Vertex(Vector3f(1, 1, 1), Vector3f(1.0f, 1.0f, 1.0f), Vector3f(0, 0, 1),
-             1, 1), // 6: 白 (右上)
-      Vertex(Vector3f(-1, 1, 1), Vector3f(0.5f, 0.5f, 0.5f), Vector3f(0, 0, 1),
-             0, 1), // 7: 灰 (左上)
+      // 前面 (z=1)，法线 (0,0,1)
+      Vertex(Vector3f(-1, -1, 1), Vector3f(0, 0, 1), Vector2f(0, 0)),
+      Vertex(Vector3f(1, -1, 1), Vector3f(0, 0, 1), Vector2f(1, 0)),
+      Vertex(Vector3f(1, 1, 1), Vector3f(0, 0, 1), Vector2f(1, 1)),
+      Vertex(Vector3f(-1, 1, 1), Vector3f(0, 0, 1), Vector2f(0, 1)),
 
-      // 左面 (x = -1)，法线 (-1, 0, 0)
-      // 从左侧看：z=1 是右，z=-1 是左，y=-1 是下，y=1 是上
-      Vertex(Vector3f(-1, -1, -1), Vector3f(0.8f, 0.2f, 0.2f),
-             Vector3f(-1, 0, 0), 0, 0), // 8: 左下后 (0,0)
-      Vertex(Vector3f(-1, -1, 1), Vector3f(0.8f, 0.2f, 0.8f),
-             Vector3f(-1, 0, 0), 1, 0), // 9: 左下前 (1,0)
-      Vertex(Vector3f(-1, 1, 1), Vector3f(0.5f, 0.5f, 0.5f), Vector3f(-1, 0, 0),
-             1, 1), // 10: 左上前 (1,1)
-      Vertex(Vector3f(-1, 1, -1), Vector3f(0.8f, 0.8f, 0.2f),
-             Vector3f(-1, 0, 0), 0, 1), // 11: 左上后 (0,1)
+      // 左面 (x=-1)，法线 (-1,0,0)
+      Vertex(Vector3f(-1, -1, -1), Vector3f(-1, 0, 0), Vector2f(0, 0)),
+      Vertex(Vector3f(-1, -1, 1), Vector3f(-1, 0, 0), Vector2f(1, 0)),
+      Vertex(Vector3f(-1, 1, 1), Vector3f(-1, 0, 0), Vector2f(1, 1)),
+      Vertex(Vector3f(-1, 1, -1), Vector3f(-1, 0, 0), Vector2f(0, 1)),
 
-      // 右面 (x = 1)，法线 (1, 0, 0)
-      // 从右侧看：z=-1 是右，z=1 是左，y=-1 是下，y=1 是上
-      Vertex(Vector3f(1, -1, -1), Vector3f(0.2f, 0.8f, 0.2f), Vector3f(1, 0, 0),
-             1, 0), // 12: 右下后 (1,0) - 注意顺序与三角形索引匹配
-      Vertex(Vector3f(1, 1, -1), Vector3f(0.2f, 0.2f, 0.8f), Vector3f(1, 0, 0),
-             1, 1), // 13: 右上后 (1,1)
-      Vertex(Vector3f(1, 1, 1), Vector3f(0.8f, 0.8f, 0.8f), Vector3f(1, 0, 0),
-             0, 1), // 14: 右上前 (0,1)
-      Vertex(Vector3f(1, -1, 1), Vector3f(0.2f, 0.8f, 0.8f), Vector3f(1, 0, 0),
-             0, 0), // 15: 右下前 (0,0)
+      // 右面 (x=1)，法线 (1,0,0)
+      Vertex(Vector3f(1, -1, -1), Vector3f(1, 0, 0), Vector2f(0, 0)),
+      Vertex(Vector3f(1, 1, -1), Vector3f(1, 0, 0), Vector2f(1, 0)),
+      Vertex(Vector3f(1, 1, 1), Vector3f(1, 0, 0), Vector2f(1, 1)),
+      Vertex(Vector3f(1, -1, 1), Vector3f(1, 0, 0), Vector2f(0, 1)),
 
-      // 底面 (y = -1)，法线 (0, -1, 0)
-      // 从下方看：x=-1 是左，x=1 是右，z=1 是上，z=-1
-      // 是下（或者反过来，只要一致即可）
-      Vertex(Vector3f(-1, -1, -1), Vector3f(0.3f, 0.3f, 0.3f),
-             Vector3f(0, -1, 0), 0, 0), // 16: 左下后 (0,0)
-      Vertex(Vector3f(1, -1, -1), Vector3f(0.3f, 0.5f, 0.3f),
-             Vector3f(0, -1, 0), 1, 0), // 17: 右下后 (1,0)
-      Vertex(Vector3f(1, -1, 1), Vector3f(0.3f, 0.3f, 0.5f), Vector3f(0, -1, 0),
-             1, 1), // 18: 右下前 (1,1)
-      Vertex(Vector3f(-1, -1, 1), Vector3f(0.5f, 0.3f, 0.3f),
-             Vector3f(0, -1, 0), 0, 1), // 19: 左下前 (0,1)
+      // 底面 (y=-1)，法线 (0,-1,0)
+      Vertex(Vector3f(-1, -1, -1), Vector3f(0, -1, 0), Vector2f(0, 0)),
+      Vertex(Vector3f(1, -1, -1), Vector3f(0, -1, 0), Vector2f(1, 0)),
+      Vertex(Vector3f(1, -1, 1), Vector3f(0, -1, 0), Vector2f(1, 1)),
+      Vertex(Vector3f(-1, -1, 1), Vector3f(0, -1, 0), Vector2f(0, 1)),
 
-      // 顶面 (y = 1)，法线 (0, 1, 0)
-      // 从上方看：x=-1 是左，x=1 是右，z=-1 是下，z=1 是上
-      Vertex(Vector3f(-1, 1, -1), Vector3f(0.9f, 0.9f, 0.2f), Vector3f(0, 1, 0),
-             0, 0), // 20: 左上后 (0,0)
-      Vertex(Vector3f(-1, 1, 1), Vector3f(0.9f, 0.2f, 0.9f), Vector3f(0, 1, 0),
-             0, 1), // 21: 左上前 (0,1) - 注意V坐标与底面相反
-      Vertex(Vector3f(1, 1, 1), Vector3f(0.2f, 0.9f, 0.9f), Vector3f(0, 1, 0),
-             1, 1), // 22: 右上前 (1,1)
-      Vertex(Vector3f(1, 1, -1), Vector3f(0.2f, 0.2f, 0.9f), Vector3f(0, 1, 0),
-             1, 0) // 23: 右上后 (1,0)
-  };
+      // 顶面 (y=1)，法线 (0,1,0)
+      Vertex(Vector3f(-1, 1, -1), Vector3f(0, 1, 0), Vector2f(0, 0)),
+      Vertex(Vector3f(-1, 1, 1), Vector3f(0, 1, 0), Vector2f(1, 0)),
+      Vertex(Vector3f(1, 1, 1), Vector3f(0, 1, 0), Vector2f(1, 1)),
+      Vertex(Vector3f(1, 1, -1), Vector3f(0, 1, 0), Vector2f(0, 1))};
 
   std::vector<std::array<int, 3>> cubeTriangles = {
       // 后面 (0,1,2,3)
@@ -213,6 +187,9 @@ int main(int argc, char *argv[]) {
       // 顶面 (20,21,22,23)
       {20, 21, 22},
       {20, 22, 23}};
+
+  Texture mytexture;
+  mytexture.createCheckerboard(512, 512, 64);
 
   Matrix4x4f modelMatrix = Matrix4x4f::identity();
   Matrix4x4f viewMatrix = Matrix4x4f::lookAt(
@@ -257,6 +234,10 @@ int main(int argc, char *argv[]) {
           debug_ShowNormals = !debug_ShowNormals;
           std::cout << "Normal visualization: "
                     << (debug_ShowNormals ? "ON" : "OFF") << std::endl;
+        }
+        if (event.key.keysym.sym == SDLK_t) {
+          useTexture = !useTexture;
+          std::cout << "Texture: " << (useTexture ? "ON" : "OFF") << std::endl;
         }
       } else if (event.type == SDL_MOUSEMOTION && mouseLocked) {
         float xoffset = event.motion.xrel;
@@ -342,8 +323,8 @@ int main(int argc, char *argv[]) {
       vout.color = litColor;
       vout.colorDivW = vout.color * vout.invW;
 
-      vout.u = cubeVertices[i].u;
-      vout.v = cubeVertices[i].v;
+      vout.texcoord = cubeVertices[i].texcoord;
+      vout.texcoordDivW = vout.texcoord * vout.invW;
 
       vout.normal = worldNormal;
 
@@ -367,8 +348,9 @@ int main(int argc, char *argv[]) {
       const auto &d1 = verticesOut[tri[1]];
       const auto &d2 = verticesOut[tri[2]];
 
-      drawTriangle(d0, d1, d2,               //
-                                             //  lightDir,                 //
+      drawTriangle(d0, d1, d2, //
+                   mytexture,
+                   useTexture,               //
                    framebuffer, depthBuffer, //
                    SCREEN_WIDTH, SCREEN_HEIGHT);
     }

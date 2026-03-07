@@ -1,6 +1,8 @@
 #pragma once
 
 #include "math_utils.h"
+#include "texture.h"
+#include "vector2f.h"
 #include "vector3f.h"
 #include <algorithm>
 #include <cmath>
@@ -12,11 +14,12 @@ struct VertexOut {
   Vector3f screenPos; // x, y: screen_coord, z: NDC Z [-1,1]
   Vector3f color;     // raw_color
   Vector3f normal;    // normal (world space)
-  float u, v;         // texture coordinate
+  Vector2f texcoord;  // texture coordinate
   float invW;         // 1/w
 
   Vector3f colorDivW; // color / w
   float zDivW;        // z / w
+  Vector2f texcoordDivW;
 };
 
 class DepthBuffer {
@@ -44,11 +47,8 @@ public:
 };
 
 inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
-                         const VertexOut &v2,
-                         // const Vector3f
-                         //     &lightDir, // light direction (world space,
-                         //     normalized, to light source)
-                         std::vector<uint32_t> &framebuffer,
+                         const VertexOut &v2, const Texture &texture,
+                         bool useTexture, std::vector<uint32_t> &framebuffer,
                          DepthBuffer &depthBuffer, int width, int height) {
   // AABB
   int minX = static_cast<int>(
@@ -103,31 +103,30 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
                 corrFactor;
       float depth = 0.5f * (z + 1.0f); // NDC Z [-1,1] -> [0,1]
 
-      // ========
+      if (depth >= depthBuffer.get(x, y))
+        continue;
 
-      if (depth < depthBuffer.get(x, y)) {
+      Vector3f finalColor;
+      if (useTexture) {
+        Vector2f uv = (v0.texcoordDivW * bc.x + v1.texcoordDivW * bc.y +
+                       v2.texcoordDivW * bc.z) *
+                      corrFactor;
 
-        Vector3f baseColor =
+        finalColor = texture.sample(uv.x, uv.y);
+      } else {
+
+        finalColor =
             (v0.colorDivW * bc.x + v1.colorDivW * bc.y + v2.colorDivW * bc.z) *
             corrFactor;
-        float u = (v0.u * v0.invW * bc.x + //
-                   v1.u * v1.invW * bc.y + //
-                   v2.u * v2.invW * bc.z) *
-                  corrFactor;
-        float v = (v0.v * v0.invW * bc.x + //
-                   v1.v * v1.invW * bc.y + //
-                   v2.v * v2.invW * bc.z) *
-                  corrFactor;
-
-        baseColor = baseColor.clamp(0, 1.0f);
-        uint8_t r = static_cast<uint8_t>(baseColor.x * 255.0f);
-        uint8_t g = static_cast<uint8_t>(baseColor.y * 255.0f);
-        uint8_t b = static_cast<uint8_t>(baseColor.z * 255.0f);
-        uint32_t pixel = 0xFF000000 | (r << 16) | (g << 8) | b; // ARGB
-
-        framebuffer[y * width + x] = pixel;
-        depthBuffer.set(x, y, depth);
       }
+
+      finalColor = finalColor.clamp(0, 1.0f);
+      uint8_t r = static_cast<uint8_t>(finalColor.x * 255.0f);
+      uint8_t g = static_cast<uint8_t>(finalColor.y * 255.0f);
+      uint8_t b = static_cast<uint8_t>(finalColor.z * 255.0f);
+      framebuffer[y * width + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
+
+      depthBuffer.set(x, y, depth);
     }
   }
 }
