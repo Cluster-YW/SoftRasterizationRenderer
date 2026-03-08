@@ -15,6 +15,7 @@
 #include <iostream>
 #include <vector>
 
+bool useBlinnPhong = true;
 bool wireframeMode = false;
 bool useTexture = true;
 bool debug_ShowNormals = false;
@@ -102,7 +103,8 @@ int main(int argc, char *argv[]) {
   Matrix4x4f projMatrix = Matrix4x4f::perspective(
       45.0f * M_PI / 180.0f, (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
 
-  auto shader = Shaders::CreateLambertShader();
+  auto lambertShader = Shaders::CreateLambertShader();
+  auto blinnPhongShader = Shaders::CreateBlinnPhongShader();
 
   float angle = 0.0f;
 
@@ -163,6 +165,11 @@ int main(int argc, char *argv[]) {
           std::cout << "Wireframe mode: " << (wireframeMode ? "ON" : "OFF")
                     << std::endl;
         }
+        if (event.key.keysym.sym == SDLK_p) {
+          useBlinnPhong = !useBlinnPhong;
+          std::cout << "Shader: " << (useBlinnPhong ? "Blinn-Phong" : "Lambert")
+                    << std::endl;
+        }
       } else if (event.type == SDL_MOUSEMOTION && mouseLocked) {
         float xoffset = event.motion.xrel;
         float yoffset = -event.motion.yrel;
@@ -221,17 +228,22 @@ int main(int argc, char *argv[]) {
     uniforms.proj = projMatrix;
     uniforms.normalMat = normalMat;
     uniforms.lightDir = lightDir;
-    uniforms.ambient = 0.3f;
+    uniforms.ambient = 0.2f;
     uniforms.texture = &mytexture;
     uniforms.screenWidth = SCREEN_WIDTH;
     uniforms.screenHeight = SCREEN_HEIGHT;
     uniforms.useTexture = useTexture;
+    uniforms.lightColor = Vector3f(1.0f, 1.0f, 1.0f);
+    uniforms.shininess = 32.0f;
+    uniforms.specularColor = Vector3f(1.0f, 0.0f, 1.0f);
+
+    const auto &activeShader = useBlinnPhong ? blinnPhongShader : lambertShader;
 
     // ==== Vertex Processing ====
     std::vector<Varying> varyings(mesh.vertices.size());
 
     for (size_t i = 0; i < mesh.vertices.size(); i++) {
-      varyings[i] = shader.vertexShader(mesh.vertices[i], uniforms);
+      varyings[i] = activeShader.vertexShader(mesh.vertices[i], uniforms);
     }
 
     // ==== Rasterization ====
@@ -254,7 +266,7 @@ int main(int argc, char *argv[]) {
       } else {
         if (!enableCulling || isFrontFace(v0.viewPos, v1.viewPos, v2.viewPos)) {
           drawTriangle(v0, v1, v2, //
-                       shader, uniforms, framebuffer, depthBuffer);
+                       activeShader, uniforms, framebuffer, depthBuffer);
           renderedCount++;
         } else
           culledCount++;
