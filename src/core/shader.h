@@ -68,7 +68,10 @@ auto general_vs = [](const Vertex &v, const Uniforms &u) -> Varying {
   Vector3f worldNormal = u.normalMat * v.normal;
   worldNormal.normalize();
 
-  out.viewPos = u.view * world;
+  // View transform
+  Vector3f viewPos = u.view * world;
+  out.viewPos = viewPos;
+  out.invW = 1.0f / (-viewPos.z);
 
   // Lighting on vertex
   float diff = std::max(0.0f, worldNormal.dot(-u.lightDir));
@@ -77,10 +80,8 @@ auto general_vs = [](const Vertex &v, const Uniforms &u) -> Varying {
   out.normal = worldNormal;
   out.texcoord = v.texcoord;
 
+  // MVP transform
   Vector3f ndc = u.mvp() * v.position;
-
-  // Perspective divide
-  out.invW = 1.0f / (-(u.view * world).z);
 
   out.screenPos.x = (ndc.x + 1.0f) * 0.5f * u.screenWidth;
   out.screenPos.y = (1.0f - ndc.y) * 0.5f * u.screenHeight;

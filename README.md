@@ -27,3 +27,18 @@
 ## 效果图
 
 ![](assets/screenshot.png)
+
+## 当前限制
+
+- 无抗锯齿（MSAA 待实现）
+- 无阴影映射（Shadow Map）
+- 简单 OBJ 解析（不支持 .mtl 材质文件）
+- 无 SIMD 优化（单线程 CPU 渲染）
+
+## 路线图
+
+- [ ] 视锥体裁剪: 处理近裁剪面穿透（Sutherland-Hodgman 算法）
+- [ ] 法线贴图: 凹凸表面细节（Tangent Space）
+- [ ] 延迟渲染: 多光源性能优化（G-Buffer 架构）
+- [ ] 软阴影: PCF（Percentage Closer Filtering）
+- [ ] Gamma 校正: 线性工作流与 HDR 色调映射

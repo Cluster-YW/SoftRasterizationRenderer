@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 using Framebuffer = std::vector<uint32_t>;
@@ -54,22 +55,6 @@ void draw_line(Framebuffer &framebuffer, int x0, int y0, int x1, int y1,
   }
 }
 
-// Vertex data for rasterization
-struct VertexOut {
-  Vector3f screenPos; // x, y: screen_coord, z: NDC Z [-1,1]
-  Vector3f viewPos;   // x, y, z: view space position (for clip)
-  Vector3f albedo;    // raw_color
-  Vector3f light;     // light_color
-  Vector3f normal;    // normal (world space)
-  Vector2f texcoord;  // texture coordinate
-  float invW;         // 1/w
-
-  float zDivW; // z / w
-  Vector2f texcoordDivW;
-  Vector3f lightDivW;
-  Vector3f albedoDivW;
-};
-
 class DepthBuffer {
 public:
   int width, height;
@@ -100,35 +85,61 @@ inline void drawTriangle(const Varying &v0, const Varying &v1,
                          std::vector<uint32_t> &framebuffer,
                          DepthBuffer &depthBuffer) {
 
-  // AABB
-  int minX = static_cast<int>(
-      std::floor(std::min({v0.screenPos.x, v1.screenPos.x, v2.screenPos.x})));
-  int maxX = static_cast<int>(
-      std::ceil(std::max({v0.screenPos.x, v1.screenPos.x, v2.screenPos.x})));
   int minY = static_cast<int>(
       std::floor(std::min({v0.screenPos.y, v1.screenPos.y, v2.screenPos.y})));
   int maxY = static_cast<int>(
       std::ceil(std::max({v0.screenPos.y, v1.screenPos.y, v2.screenPos.y})));
-
-  // clip to screen
-  minX = std::max(minX, 0);
-  maxX = std::min(maxX, uniforms.screenWidth - 1);
   minY = std::max(minY, 0);
   maxY = std::min(maxY, uniforms.screenHeight - 1);
 
-  // ---- Flat Shading ---
-  // I = I_amb + I_diff * max(0, n·l)
-  // l is the light direction (normalized)
+  auto intersectX = [](const Vector3f &a, const Vector3f &b,
+                       float yf) -> float {
+    float dy = b.y - a.y;
+    if (std::abs(dy) < 1e-6f) // skip horizontal edges
+      return std::numeric_limits<float>::quiet_NaN();
 
-  // average normal of the triangle
-  // Vector3f faceNormal = (v0.normal + v1.normal + v2.normal).normalized();
+    if (yf < a.y && yf < b.y || yf > a.y && yf > b.y) // out of range
+      return std::numeric_limits<float>::quiet_NaN();
 
-  // float diff = std::max(0.0f, faceNormal.dot(-lightDir));
-  // float amb = 0.2f; // ambient lighting
+    float t = (yf - a.y) / dy;
+    return a.x + t * (b.x - a.x);
+  };
 
   // for each pixel in the AABB
-  for (int x = minX; x <= maxX; ++x) {
-    for (int y = minY; y <= maxY; ++y) {
+  for (int y = minY; y <= maxY; ++y) {
+    float yf = static_cast<float>(y) + 0.5f;
+
+    float xs[3];
+    int xCount = 0;
+
+    float x0 = intersectX(v0.screenPos, v1.screenPos, yf);
+    if (!std::isnan(x0))
+      xs[xCount++] = x0;
+
+    float x1 = intersectX(v1.screenPos, v2.screenPos, yf);
+    if (!std::isnan(x1))
+      xs[xCount++] = x1;
+
+    float x2 = intersectX(v2.screenPos, v0.screenPos, yf);
+    if (!std::isnan(x2))
+      xs[xCount++] = x2;
+
+    if (xCount < 2)
+      continue; // skip degenerate triangles
+
+    float xStart = xs[0];
+    float xEnd = xs[0];
+    for (int i = 1; i < xCount; ++i) {
+      xStart = std::min(xStart, xs[i]);
+      xEnd = std::max(xEnd, xs[i]);
+    }
+
+    int minX = static_cast<int>(std::ceil(xStart - 0.5f));
+    int maxX = static_cast<int>(std::floor(xEnd - 0.5f));
+    minX = std::max(minX, 0);
+    maxX = std::min(maxX, uniforms.screenWidth - 1);
+
+    for (int x = minX; x <= maxX; ++x) {
       // pixel center
       Vector3f p(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f,
                  0.0f);
