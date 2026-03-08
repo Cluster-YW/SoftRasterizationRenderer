@@ -10,6 +10,50 @@
 #include <cstdint>
 #include <vector>
 
+using Framebuffer = std::vector<uint32_t>;
+
+const int SCREEN_WIDTH = 800;
+const int SCREEN_HEIGHT = 600;
+
+void put_pixel(Framebuffer &framebuffer, int x, int y, uint32_t color) {
+  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT)
+    return;
+  framebuffer[y * SCREEN_WIDTH + x] = color;
+}
+void draw_line(Framebuffer &framebuffer, int x0, int y0, int x1, int y1,
+               uint32_t color) {
+  bool steep =
+      std::abs(y1 - y0) > std::abs(x1 - x0); // determine if the line is steep
+  if (steep) { // if the line is steep, swap the x and y coordinates
+    std::swap(x0, y0);
+    std::swap(x1, y1);
+  }
+  // ensure x0 <= x1
+  if (x0 > x1) {
+    std::swap(x0, x1);
+    std::swap(y0, y1);
+  }
+
+  // Bresenham's algorithm
+  int dx = x1 - x0;
+  int dy = std::abs(y1 - y0);
+  int err = dx / 2;
+  int ystep = (y0 < y1) ? 1 : -1;
+  int y = y0;
+  for (int x = x0; x <= x1; x++) {
+    if (steep) {
+      put_pixel(framebuffer, y, x, color);
+    } else {
+      put_pixel(framebuffer, x, y, color);
+    }
+    err -= dy;
+    if (err < 0) {
+      y += ystep;
+      err += dx;
+    }
+  }
+}
+
 // Vertex data for rasterization
 struct VertexOut {
   Vector3f screenPos; // x, y: screen_coord, z: NDC Z [-1,1]
@@ -109,8 +153,8 @@ inline void drawTriangle(const Varying &v0, const Varying &v1,
                 corrFactor;
       float depth = 0.5f * (z + 1.0f); // NDC Z [-1,1] -> [0,1]
 
-      // if (depth >= depthBuffer.get(x, y)) // early depth test
-      //   continue;
+      if (depth >= depthBuffer.get(x, y)) // early depth test
+        continue;
 
       Varying interp;
       Vector3f factor(v0.invW, v1.invW, v2.invW);
@@ -122,6 +166,7 @@ inline void drawTriangle(const Varying &v0, const Varying &v1,
           factor.interpolate(v0.screenPos, v1.screenPos, v2.screenPos);
       interp.texcoord =
           factor.interpolate(v0.texcoord, v1.texcoord, v2.texcoord);
+      interp.color = factor.interpolate(v0.color, v1.color, v2.color);
 
       // mix light and albedo
       Vector3f finalColor;
@@ -137,6 +182,30 @@ inline void drawTriangle(const Varying &v0, const Varying &v1,
       depthBuffer.set(x, y, depth);
     }
   }
+}
+
+void drawTriangleWireframe(const Varying &v0, const Varying &v1,
+                           const Varying &v2,
+                           std::vector<uint32_t> &framebuffer, int width,
+                           int height) {
+  // 转换为整数屏幕坐标
+  int x0 = static_cast<int>(v0.screenPos.x);
+  int y0 = static_cast<int>(v0.screenPos.y);
+  int x1 = static_cast<int>(v1.screenPos.x);
+  int y1 = static_cast<int>(v1.screenPos.y);
+  int x2 = static_cast<int>(v2.screenPos.x);
+  int y2 = static_cast<int>(v2.screenPos.y);
+
+  // 绘制三条边（白色）
+  const uint32_t WIREFRAME_COLOR = 0xFFFFFFFF; // 纯白
+  draw_line(framebuffer, x0, y0, x1, y1, WIREFRAME_COLOR);
+  draw_line(framebuffer, x1, y1, x2, y2, WIREFRAME_COLOR);
+  draw_line(framebuffer, x2, y2, x0, y0, WIREFRAME_COLOR);
+
+  // 可选：绘制顶点标记（红色小点）
+  put_pixel(framebuffer, x0, y0, 0xFFFF0000);
+  put_pixel(framebuffer, x1, y1, 0xFFFF0000);
+  put_pixel(framebuffer, x2, y2, 0xFFFF0000);
 }
 
 inline bool isFrontFace(const Vector3f &v0_view, const Vector3f &v1_view,

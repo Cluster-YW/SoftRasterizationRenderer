@@ -1,3 +1,4 @@
+#include <ostream>
 #define STB_IMAGE_IMPLEMENTATION
 
 #include "core/shader.h"
@@ -14,62 +15,12 @@
 #include <iostream>
 #include <vector>
 
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
-
+bool wireframeMode = false;
 bool useTexture = true;
 bool debug_ShowNormals = false;
 bool enableCulling = true;
 const float NORMAL_DISPLAY_LENGTH = 0.1f;
 const uint32_t NORMAL_COLOR = 0xFF00FF00; // Green
-
-using Framebuffer = std::vector<uint32_t>;
-
-void put_pixel(Framebuffer &framebuffer, int x, int y, uint32_t color) {
-  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT)
-    return;
-  framebuffer[y * SCREEN_WIDTH + x] = color;
-}
-
-struct VertexData {
-  Vector3f screen;
-  Vector3f color;
-  float u, v;
-};
-
-void draw_line(Framebuffer &framebuffer, int x0, int y0, int x1, int y1,
-               uint32_t color) {
-  bool steep =
-      std::abs(y1 - y0) > std::abs(x1 - x0); // determine if the line is steep
-  if (steep) { // if the line is steep, swap the x and y coordinates
-    std::swap(x0, y0);
-    std::swap(x1, y1);
-  }
-  // ensure x0 <= x1
-  if (x0 > x1) {
-    std::swap(x0, x1);
-    std::swap(y0, y1);
-  }
-
-  // Bresenham's algorithm
-  int dx = x1 - x0;
-  int dy = std::abs(y1 - y0);
-  int err = dx / 2;
-  int ystep = (y0 < y1) ? 1 : -1;
-  int y = y0;
-  for (int x = x0; x <= x1; x++) {
-    if (steep) {
-      put_pixel(framebuffer, y, x, color);
-    } else {
-      put_pixel(framebuffer, x, y, color);
-    }
-    err -= dy;
-    if (err < 0) {
-      y += ystep;
-      err += dx;
-    }
-  }
-}
 
 int main(int argc, char *argv[]) {
   // ********** SDL initialization **********
@@ -207,6 +158,11 @@ int main(int argc, char *argv[]) {
           std::cout << "Culled triangles: " << culledCount << std::endl;
           std::cout << "Rendered triangles: " << renderedCount << std::endl;
         }
+        if (event.key.keysym.sym == SDLK_l) {
+          wireframeMode = !wireframeMode;
+          std::cout << "Wireframe mode: " << (wireframeMode ? "ON" : "OFF")
+                    << std::endl;
+        }
       } else if (event.type == SDL_MOUSEMOTION && mouseLocked) {
         float xoffset = event.motion.xrel;
         float yoffset = -event.motion.yrel;
@@ -265,7 +221,7 @@ int main(int argc, char *argv[]) {
     uniforms.proj = projMatrix;
     uniforms.normalMat = normalMat;
     uniforms.lightDir = lightDir;
-    uniforms.ambient = 0.2f;
+    uniforms.ambient = 0.3f;
     uniforms.texture = &mytexture;
     uniforms.screenWidth = SCREEN_WIDTH;
     uniforms.screenHeight = SCREEN_HEIGHT;
@@ -287,8 +243,22 @@ int main(int argc, char *argv[]) {
       int idx1 = mesh.indices[i + 1];
       int idx2 = mesh.indices[i + 2];
 
-      drawTriangle(varyings[idx0], varyings[idx1], varyings[idx2], //
-                   shader, uniforms, framebuffer, depthBuffer);
+      const Varying &v0 = varyings[idx0];
+      const Varying &v1 = varyings[idx1];
+      const Varying &v2 = varyings[idx2];
+
+      if (wireframeMode) {
+        drawTriangleWireframe(v0, v1, v2, framebuffer, SCREEN_WIDTH,
+                              SCREEN_HEIGHT);
+        renderedCount++;
+      } else {
+        if (!enableCulling || isFrontFace(v0.viewPos, v1.viewPos, v2.viewPos)) {
+          drawTriangle(v0, v1, v2, //
+                       shader, uniforms, framebuffer, depthBuffer);
+          renderedCount++;
+        } else
+          culledCount++;
+      }
     }
 
     // === Display ===

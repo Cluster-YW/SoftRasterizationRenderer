@@ -28,6 +28,7 @@ struct Varying {
   Vector3f position;
   Vector3f normal;
   Vector3f screenPos; // Screen space position
+  Vector3f viewPos;   // View space position (for culling)
   Vector2f texcoord;
   Vector3f color;
   float invW;
@@ -59,8 +60,10 @@ inline ShaderProgram CreateLambertShader() {
     Vector3f worldNormal = u.normalMat * v.normal;
     worldNormal.normalize();
 
+    out.viewPos = u.view * world;
+
     // Lighting on vertex
-    float diff = std::max(0.0f, worldNormal.dot(u.lightDir));
+    float diff = std::max(0.0f, worldNormal.dot(-u.lightDir));
     out.color = Vector3f(u.ambient + diff); // Light Intensity
     out.position = world;
     out.normal = worldNormal;
