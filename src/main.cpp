@@ -235,7 +235,7 @@ int main(int argc, char *argv[]) {
     uniforms.useTexture = useTexture;
     uniforms.lightColor = Vector3f(1.0f, 1.0f, 1.0f);
     uniforms.shininess = 32.0f;
-    uniforms.specularColor = Vector3f(1.0f, 0.0f, 1.0f);
+    uniforms.specularColor = Vector3f(1.0f, 1.0f, 1.0f);
 
     const auto &activeShader = useBlinnPhong ? blinnPhongShader : lambertShader;
 
