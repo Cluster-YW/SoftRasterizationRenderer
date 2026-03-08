@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math_utils.h"
+#include "shader.h"
 #include "texture.h"
 #include "vector2f.h"
 #include "vector3f.h"
@@ -12,6 +13,7 @@
 // Vertex data for rasterization
 struct VertexOut {
   Vector3f screenPos; // x, y: screen_coord, z: NDC Z [-1,1]
+  Vector3f viewPos;   // x, y, z: view space position (for clip)
   Vector3f albedo;    // raw_color
   Vector3f light;     // light_color
   Vector3f normal;    // normal (world space)
@@ -48,10 +50,12 @@ public:
   }
 };
 
-inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
-                         const VertexOut &v2, const Texture &texture,
-                         bool useTexture, std::vector<uint32_t> &framebuffer,
-                         DepthBuffer &depthBuffer, int width, int height) {
+inline void drawTriangle(const Varying &v0, const Varying &v1,
+                         const Varying &v2, //
+                         const ShaderProgram &shader, const Uniforms &uniforms,
+                         std::vector<uint32_t> &framebuffer,
+                         DepthBuffer &depthBuffer) {
+
   // AABB
   int minX = static_cast<int>(
       std::floor(std::min({v0.screenPos.x, v1.screenPos.x, v2.screenPos.x})));
@@ -64,9 +68,9 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
 
   // clip to screen
   minX = std::max(minX, 0);
-  maxX = std::min(maxX, width - 1);
+  maxX = std::min(maxX, uniforms.screenWidth - 1);
   minY = std::max(minY, 0);
-  maxY = std::min(maxY, height - 1);
+  maxY = std::min(maxY, uniforms.screenHeight - 1);
 
   // ---- Flat Shading ---
   // I = I_amb + I_diff * max(0, n·l)
@@ -105,39 +109,40 @@ inline void drawTriangle(const VertexOut &v0, const VertexOut &v1,
                 corrFactor;
       float depth = 0.5f * (z + 1.0f); // NDC Z [-1,1] -> [0,1]
 
-      if (depth >= depthBuffer.get(x, y)) // early depth test
-        continue;
+      // if (depth >= depthBuffer.get(x, y)) // early depth test
+      //   continue;
 
-      Vector3f albedo = (v0.albedoDivW * bc.x +  //
-                         v1.albedoDivW * bc.y +  //
-                         v2.albedoDivW * bc.z) * //
-                        corrFactor;
-      Vector3f light = (v0.lightDivW * bc.x +  //
-                        v1.lightDivW * bc.y +  //
-                        v2.lightDivW * bc.z) * //
-                       corrFactor;
-
-      if (useTexture) {                          // overwrites albedo
-        Vector2f uv = (v0.texcoordDivW * bc.x +  //
-                       v1.texcoordDivW * bc.y +  //
-                       v2.texcoordDivW * bc.z) * //
-                      corrFactor;
-
-        albedo = texture.sampleNearest(uv.x, uv.y);
-      }
+      Varying interp;
+      Vector3f factor(v0.invW, v1.invW, v2.invW);
+      factor = factor.product(bc) * corrFactor;
+      interp.position =
+          factor.interpolate(v0.position, v1.position, v2.position);
+      interp.normal = factor.interpolate(v0.normal, v1.normal, v2.normal);
+      interp.screenPos =
+          factor.interpolate(v0.screenPos, v1.screenPos, v2.screenPos);
+      interp.texcoord =
+          factor.interpolate(v0.texcoord, v1.texcoord, v2.texcoord);
 
       // mix light and albedo
       Vector3f finalColor;
-      finalColor =
-          Vector3f(albedo.x * light.x, albedo.y * light.y, albedo.z * light.z);
+      finalColor = shader.fragmentShader(interp, uniforms);
 
       finalColor = finalColor.clamp(0, 1.0f);
       uint8_t r = static_cast<uint8_t>(finalColor.x * 255.0f);
       uint8_t g = static_cast<uint8_t>(finalColor.y * 255.0f);
       uint8_t b = static_cast<uint8_t>(finalColor.z * 255.0f);
-      framebuffer[y * width + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
+      framebuffer[y * uniforms.screenWidth + x] =
+          0xFF000000 | (r << 16) | (g << 8) | b;
 
       depthBuffer.set(x, y, depth);
     }
   }
+}
+
+inline bool isFrontFace(const Vector3f &v0_view, const Vector3f &v1_view,
+                        const Vector3f &v2_view) {
+  Vector3f edge1 = v1_view - v0_view;
+  Vector3f edge2 = v2_view - v0_view;
+  Vector3f faceNormal = edge1.cross(edge2);
+  return faceNormal.z > 0;
 }

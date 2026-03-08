@@ -1,9 +1,11 @@
 #include "vector3f.h"
+#include "vector2f.h"
 #include <cmath>
 #include <iostream>
 
 // ---------- Constructors ----------
 Vector3f::Vector3f(float x, float y, float z) : x(x), y(y), z(z) {}
+Vector3f::Vector3f(float v) : x(v), y(v), z(v) {}
 Vector3f::Vector3f() : x(0.0f), y(0.0f), z(0.0f) {}
 Vector3f::Vector3f(const Vector3f &other)
     : x(other.x), y(other.y), z(other.z) {}
@@ -87,6 +89,11 @@ float Vector3f::dot(const Vector3f &other) const {
 Vector3f Vector3f::cross(const Vector3f &other) const {
   return Vector3f(y * other.z - z * other.y, z * other.x - x * other.z,
                   x * other.y - y * other.x);
+}
+
+// product by element
+Vector3f Vector3f::product(const Vector3f &other) const {
+  return Vector3f(x * other.x, y * other.y, z * other.z);
 }
 
 float Vector3f::length() const { return sqrtf(x * x + y * y + z * z); }

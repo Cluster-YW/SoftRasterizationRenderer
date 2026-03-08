@@ -3,7 +3,6 @@
 #include "vector2f.h"
 #include "vector3f.h"
 #include "vertex.h"
-#include <algorithm>
 #include <cstddef>
 #include <fstream>
 #include <iostream>

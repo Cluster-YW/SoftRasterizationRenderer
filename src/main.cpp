@@ -1,16 +1,15 @@
 #define STB_IMAGE_IMPLEMENTATION
 
+#include "core/shader.h"
+
 #include "SDL2/SDL_keycode.h"
 #include "core/camera.h"
 #include "core/matrix4x4f.h"
 #include "core/mesh.h"
 #include "core/rasterizer.h"
 #include "core/vector3f.h"
-#include "core/vertex.h"
-#include "viewport.h"
 
 #include <SDL2/SDL.h>
-#include <array>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -20,6 +19,7 @@ const int SCREEN_HEIGHT = 600;
 
 bool useTexture = true;
 bool debug_ShowNormals = false;
+bool enableCulling = true;
 const float NORMAL_DISPLAY_LENGTH = 0.1f;
 const uint32_t NORMAL_COLOR = 0xFF00FF00; // Green
 
@@ -151,12 +151,17 @@ int main(int argc, char *argv[]) {
   Matrix4x4f projMatrix = Matrix4x4f::perspective(
       45.0f * M_PI / 180.0f, (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
 
+  auto shader = Shaders::CreateLambertShader();
+
   float angle = 0.0f;
 
   Vector3f lightDir(1.0f, -1.0f, -1.0f); // 从左上方照射
   lightDir.normalize();
 
   float ambient = 0.2f;
+
+  int culledCount = 0;
+  int renderedCount = 0;
 
   // ********** Main loop **********
   while (!quit) {
@@ -192,6 +197,15 @@ int main(int argc, char *argv[]) {
         if (event.key.keysym.sym == SDLK_t) {
           useTexture = !useTexture;
           std::cout << "Texture: " << (useTexture ? "ON" : "OFF") << std::endl;
+        }
+        if (event.key.keysym.sym == SDLK_c) {
+          enableCulling = !enableCulling;
+          std::cout << "Culling: " << (enableCulling ? "ON" : "OFF")
+                    << std::endl;
+        }
+        if (event.key.keysym.sym == SDLK_r) {
+          std::cout << "Culled triangles: " << culledCount << std::endl;
+          std::cout << "Rendered triangles: " << renderedCount << std::endl;
         }
       } else if (event.type == SDL_MOUSEMOTION && mouseLocked) {
         float xoffset = event.motion.xrel;
@@ -239,89 +253,42 @@ int main(int argc, char *argv[]) {
     Matrix4x4f normalMat = modelMatrix.normalMatrix();
 
     struct NormalLine {
-      Vector3f start;
-      Vector3f end;
+      Varying start;
+      Varying end;
     };
     std::vector<NormalLine> normalLines;
     normalLines.reserve(mesh.vertices.size());
 
+    Uniforms uniforms;
+    uniforms.model = modelMatrix;
+    uniforms.view = viewMatrix;
+    uniforms.proj = projMatrix;
+    uniforms.normalMat = normalMat;
+    uniforms.lightDir = lightDir;
+    uniforms.ambient = 0.2f;
+    uniforms.texture = &mytexture;
+    uniforms.screenWidth = SCREEN_WIDTH;
+    uniforms.screenHeight = SCREEN_HEIGHT;
+    uniforms.useTexture = useTexture;
+
     // ==== Vertex Processing ====
-    std::vector<VertexOut> verticesOut(mesh.vertices.size());
+    std::vector<Varying> varyings(mesh.vertices.size());
 
     for (size_t i = 0; i < mesh.vertices.size(); i++) {
-      VertexOut vout;
-      // model transform => to world space
-      Vector3f world = modelMatrix * mesh.vertices[i].position;
-      Vector3f worldNormal = normalMat * mesh.vertices[i].normal;
-      worldNormal.normalize();
-
-      // **Gouraud Shading**
-      float diff = std::max(0.0f, worldNormal.dot(-lightDir));
-      vout.light = Vector3f(ambient + diff, ambient + diff, ambient + diff);
-      vout.albedo = mesh.vertices[i].color;
-
-      // viewport transform
-      Vector3f view = viewMatrix * world;
-
-      // projection transform
-      float wClip = -view.z; // get w
-      if (std::abs(wClip) < 1e-6f)
-        wClip = 1e-6f;
-      vout.invW = 1.0f / wClip;
-
-      Vector3f ndc = projMatrix * view;
-      vout.screenPos = viewportTransform(ndc, SCREEN_WIDTH, SCREEN_HEIGHT);
-      vout.screenPos.z = ndc.z;
-
-      vout.texcoord = mesh.vertices[i].texcoord;
-      vout.normal = worldNormal;
-
-      // pre-calculate for later use
-      vout.albedoDivW = vout.albedo * vout.invW;
-      vout.lightDivW = vout.light * vout.invW;
-      vout.texcoordDivW = vout.texcoord * vout.invW;
-
-      verticesOut[i] = vout;
-
-      if (debug_ShowNormals) {
-        // vertex -> vertex + normal * length (=normal tip)
-        Vector3f normalTipWorld = world + worldNormal * NORMAL_DISPLAY_LENGTH;
-        Vector3f normalTipView = viewMatrix * normalTipWorld;
-        Vector3f normalTipNdc = projMatrix * normalTipView;
-        Vector3f normalTipScreen =
-            viewportTransform(normalTipNdc, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-        normalLines.push_back({vout.screenPos, normalTipScreen});
-      }
+      varyings[i] = shader.vertexShader(mesh.vertices[i], uniforms);
     }
 
     // ==== Rasterization ====
+    culledCount = 0;
+    renderedCount = 0;
+
     for (size_t i = 0; i < mesh.indices.size(); i += 3) {
-      const VertexOut &d0 = verticesOut[mesh.indices[i + 0]];
-      const VertexOut &d1 = verticesOut[mesh.indices[i + 1]];
-      const VertexOut &d2 = verticesOut[mesh.indices[i + 2]];
-      drawTriangle(d0, d1, d2,               //
-                   mytexture, useTexture,    //
-                   framebuffer, depthBuffer, //
-                   SCREEN_WIDTH, SCREEN_HEIGHT);
-    }
+      int idx0 = mesh.indices[i + 0];
+      int idx1 = mesh.indices[i + 1];
+      int idx2 = mesh.indices[i + 2];
 
-    // ==== Debug visualization ====
-    if (debug_ShowNormals) {
-      for (const auto &line : normalLines) {
-        int x0 = static_cast<int>(line.start.x);
-        int y0 = static_cast<int>(line.start.y);
-        int x1 = static_cast<int>(line.end.x);
-        int y1 = static_cast<int>(line.end.y);
-
-        // clip
-        auto inScreen = [&](int x, int y) {
-          return x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT;
-        };
-
-        if (inScreen(x0, y0) && inScreen(x1, y1))
-          draw_line(framebuffer, x0, y0, x1, y1, NORMAL_COLOR);
-      }
+      drawTriangle(varyings[idx0], varyings[idx1], varyings[idx2], //
+                   shader, uniforms, framebuffer, depthBuffer);
     }
 
     // === Display ===

@@ -12,6 +12,9 @@ public:
   // Default constructor: initializes to (0, 0, 0)
   Vector3f();
 
+  // Constructor with same values
+  Vector3f(float v);
+
   // Constructor with three values
   Vector3f(float x, float y, float z);
 
@@ -44,6 +47,7 @@ public:
   // ---------- Vector Operations ----------
   float dot(const Vector3f &rhs) const;
   Vector3f cross(const Vector3f &rhs) const;
+  Vector3f product(const Vector3f &rhs) const;
   float length() const;
   float lengthSquared() const;
   Vector3f normalized() const;
@@ -52,6 +56,12 @@ public:
   // ---------- Utility ----------
   Vector3f clamp(const Vector3f &min, const Vector3f &max) const;
   Vector3f clamp(float min, float max) const;
+
+  // Interpolation between three vectors
+  template <typename T>
+  T interpolate(const T &a, const T &b, const T &c) const {
+    return a * x + b * y + c * z;
+  }
 
   // Static constants
   static const Vector3f ZERO;
