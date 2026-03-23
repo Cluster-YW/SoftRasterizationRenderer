@@ -3,6 +3,9 @@
 #include <cmath>
 #include <iostream>
 
+namespace sr {
+namespace math {
+
 // ---------- Constructors ----------
 Vector3f::Vector3f(float x, float y, float z) : x(x), y(y), z(z) {}
 Vector3f::Vector3f(float v) : x(v), y(v), z(v) {}
@@ -139,3 +142,6 @@ std::ostream &operator<<(std::ostream &os, const Vector3f &v) {
   os << "v3f(" << v.x << ", " << v.y << ", " << v.z << ")";
   return os;
 }
+
+} // namespace math
+} // namespace sr

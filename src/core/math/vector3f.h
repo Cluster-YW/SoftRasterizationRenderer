@@ -3,6 +3,9 @@
 #include <cmath>
 #include <iostream>
 
+namespace sr {
+namespace math {
+
 class Vector3f {
 public:
   // Data members: three float components
@@ -76,3 +79,6 @@ public:
 inline Vector3f operator*(float scalar, const Vector3f &v) {
   return v * scalar;
 }
+
+} // namespace math
+} // namespace sr

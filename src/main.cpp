@@ -1,19 +1,27 @@
 #include <ostream>
 #define STB_IMAGE_IMPLEMENTATION
 
-#include "core/shader.h"
+#include "render/shader.h"
 
 #include "SDL2/SDL_keycode.h"
-#include "core/camera.h"
-#include "core/matrix4x4f.h"
-#include "core/mesh.h"
-#include "core/rasterizer.h"
-#include "core/vector3f.h"
+#include "geometry/camera.h"
+#include "math/matrix4x4f.h"
+#include "math/vector3f.h"
+#include "render/rasterizer.h"
+#include "resource/mesh.h"
 
 #include <SDL2/SDL.h>
 #include <cstdint>
 #include <iostream>
 #include <vector>
+
+namespace sr {
+using namespace math;     // 在 sr 内聚合 math
+using namespace geometry; // 在 sr 内聚合 geometry
+using namespace render;   // 在 sr 内聚合 render
+} // namespace sr
+
+using namespace sr;
 
 bool useBlinnPhong = true;
 bool wireframeMode = false;

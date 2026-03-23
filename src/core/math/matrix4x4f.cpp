@@ -1,7 +1,9 @@
-#include "Matrix4x4f.h"
 #include "matrix4x4f.h"
 #include <cassert>
 #include <cmath>
+
+namespace sr {
+namespace math {
 
 // ---------- Constructors ----------
 Matrix4x4f::Matrix4x4f() {
@@ -316,3 +318,5 @@ Matrix4x4f Matrix4x4f::normalMatrix() const {
   Matrix4x4f inv = this->inverse();
   return inv.transposed();
 }
+} // namespace math
+} // namespace sr

@@ -1,12 +1,17 @@
 #pragma once
 
-#include "matrix4x4f.h"
-#include "vector3f.h"
+#include "math/matrix4x4f.h"
+#include "math/vector3f.h"
 #include <cmath>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f
 #endif
+
+using namespace sr::math;
+
+namespace sr {
+namespace geometry {
 
 class Camera {
 public:
@@ -91,3 +96,6 @@ private:
     up = right.cross(front).normalized();
   }
 };
+
+} // namespace geometry
+} // namespace sr

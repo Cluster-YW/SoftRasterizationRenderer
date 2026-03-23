@@ -1,9 +1,11 @@
 #pragma once
 
-#include "Vector3f.h"
+#include "vector3f.h"
 #include <array>
 #include <iostream>
 
+namespace sr {
+namespace math {
 class Matrix4x4f {
 public:
   // Data: 16 floats stored in **column-major** order.
@@ -90,3 +92,6 @@ public:
   static Matrix4x4f lookAt(const Vector3f &eye, const Vector3f &center,
                            const Vector3f &up);
 };
+
+} // namespace math
+} // namespace sr

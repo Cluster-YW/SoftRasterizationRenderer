@@ -1,12 +1,14 @@
 #pragma once
-#include "vector2f.h"
-#include "vector3f.h"
+#include "math/vector2f.h"
+#include "math/vector3f.h"
 
 #include "stb/stb_image.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <vector>
+
+using namespace sr::math;
 
 class Texture {
 public:

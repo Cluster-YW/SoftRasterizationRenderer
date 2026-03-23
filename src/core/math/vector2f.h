@@ -2,6 +2,9 @@
 
 #include <cmath>
 
+namespace sr {
+namespace math {
+
 struct Vector2f {
   float x, y;
 
@@ -18,3 +21,6 @@ struct Vector2f {
 };
 
 inline Vector2f operator*(float s, const Vector2f &v) { return v * s; }
+
+} // namespace math
+} // namespace sr

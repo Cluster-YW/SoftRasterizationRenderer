@@ -1,14 +1,20 @@
 #pragma once
 
-#include "vector2f.h"
-#include "vector3f.h"
-#include "vertex.h"
+#include "geometry/vertex.h"
+#include "math/vector2f.h"
+#include "math/vector3f.h"
 #include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+
+
+using namespace sr::math;
+
+namespace sr {
+namespace geometry {
 
 struct Mesh {
   std::vector<Vertex> vertices; // vertex data
@@ -128,3 +134,5 @@ private:
     }
   }
 };
+} // namespace geometry
+} // namespace sr

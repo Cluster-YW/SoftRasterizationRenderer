@@ -1,10 +1,10 @@
 #pragma once
 
-#include "math_utils.h"
-#include "shader.h"
-#include "texture.h"
-#include "vector2f.h"
-#include "vector3f.h"
+#include "math/math_utils.h"
+#include "math/vector2f.h"
+#include "math/vector3f.h"
+#include "render/shader.h"
+#include "resource/texture.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -12,6 +12,10 @@
 #include <vector>
 
 using Framebuffer = std::vector<uint32_t>;
+
+using namespace sr::math;
+namespace sr {
+namespace render {
 
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
@@ -226,3 +230,6 @@ inline bool isFrontFace(const Vector3f &v0_view, const Vector3f &v1_view,
   Vector3f faceNormal = edge1.cross(edge2);
   return faceNormal.z > 0;
 }
+
+} // namespace render
+} // namespace sr

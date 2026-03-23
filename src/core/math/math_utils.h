@@ -1,6 +1,9 @@
 #pragma once
 #include "vector3f.h"
 
+namespace sr {
+namespace math {
+
 // compute barycentric coordinates of a 2D point in a triangle
 // 计算重心坐标
 inline Vector3f barycentric2D(const Vector3f &v1, const Vector3f &v2,
@@ -26,3 +29,6 @@ inline bool insideTriangle(const Vector3f &bc) {
   return bc.x >= 0.0f && bc.y >= 0.0f && bc.z >= 0.0f &&
          bc.x + bc.y + bc.z <= 1.0f;
 }
+
+} // namespace math
+} // namespace sr

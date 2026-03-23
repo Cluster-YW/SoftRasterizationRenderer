@@ -5,31 +5,96 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 指定 SDL2 的路径（请确认路径正确）
-set(SDL2_DIR "D:/Environment/SDL2/x86_64-w64-mingw32")
+# ==========================================
+# 1. 目录结构配置
+# ==========================================
 
-include_directories(${SDL2_DIR}/include)
+# 添加 src 下所有子目录到头文件搜索路径
+# 这样你可以直接 #include "core/vector3f.h" 或 "render/framebuffer.h"
+include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_SOURCE_DIR}/src/core)
+
+# 外部库路径（STB 等）
 include_directories(${CMAKE_SOURCE_DIR}/extern)
 
-add_executable(${PROJECT_NAME} 
-    src/main.cpp 
-    src/core/vector3f.cpp
-    src/core/matrix4x4f.cpp
+# SDL2 路径（保持你的 Windows 配置）
+set(SDL2_DIR "D:/Environment/SDL2/x86_64-w64-mingw32")
+include_directories(${SDL2_DIR}/include)
+
+# ==========================================
+# 2. 源文件自动收集（推荐）
+# ==========================================
+
+# 自动收集 src 目录下所有 .cpp 文件，避免手动添加遗漏
+file(GLOB_RECURSE SOURCES 
+    "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
 
-# 按正确顺序链接库
+# 如果你更喜欢显式控制（适合小项目），注释掉上面，用下面这个：
+# set(SOURCES
+#     src/main.cpp
+#     src/core/vector3f.cpp
+#     src/core/matrix4x4f.cpp
+#     # 后续添加 src/resource/texture_loader.cpp 等
+# )
+
+add_executable(${PROJECT_NAME} ${SOURCES})
+
+# ==========================================
+# 3. 链接配置（MinGW 专用）
+# ==========================================
+
 target_link_libraries(${PROJECT_NAME}
-    mingw32                          # MinGW 系统库（必须放在最前）
-    ${SDL2_DIR}/lib/libSDL2main.a    # SDL2 入口点处理
+    mingw32                          # MinGW 系统库（必须最前）
+    ${SDL2_DIR}/lib/libSDL2main.a    # SDL2 入口点
     ${SDL2_DIR}/lib/libSDL2.dll.a    # SDL2 主库
 )
 
-# （可选）添加 -mwindows 标志，让程序不显示控制台窗口
-# set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-mwindows")
+# ==========================================
+# 4. 编译器选项（增强代码质量）
+# ==========================================
 
-# 将 SDL2.dll 复制到输出目录
+# Windows MinGW 建议开启的警告（帮助你发现命名空间错误）
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wall                          # 开启所有基础警告
+        -Wextra                        # 额外警告（如未使用参数）
+        -Wshadow                       # 变量遮蔽警告（命名空间相关）
+        -Wpedantic                     # 严格符合标准
+        -O2                            # 优化级别（软光栅需要性能）
+    )
+endif()
+
+# MSVC 配置（如果你未来迁移到 Visual Studio）
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /O2)
+endif()
+
+# ==========================================
+# 5. 资源文件自动复制（Fix D 的前置准备）
+# ==========================================
+
+# 自动复制 SDL2.dll 到输出目录（保持你的配置）
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${SDL2_DIR}/bin/SDL2.dll"
         $<TARGET_FILE_DIR:${PROJECT_NAME}>
 )
+
+# （可选）自动复制 assets 文件夹到构建目录
+# 这样你可以在代码中用相对路径 "../assets/suzanne.obj"
+set(ASSETS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets")
+if(EXISTS ${ASSETS_SOURCE_DIR})
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${ASSETS_SOURCE_DIR}
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
+    )
+endif()
+
+# ==========================================
+# 6. 分组显示（IDE 友好）
+# ==========================================
+
+# 让 Visual Studio/CLion 按目录结构显示文件，而不是平铺
+source_group(TREE ${CMAKE_SOURCE_DIR}/src PREFIX "Source Files" FILES ${SOURCES})
