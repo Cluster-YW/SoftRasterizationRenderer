@@ -3,6 +3,7 @@
 #include "math/math_utils.h"
 #include "math/vector2f.h"
 #include "math/vector3f.h"
+#include "render/framebuffer.h"
 #include "render/shader.h"
 #include "resource/texture.h"
 #include <algorithm>
@@ -11,20 +12,10 @@
 #include <limits>
 #include <vector>
 
-using Framebuffer = std::vector<uint32_t>;
-
 using namespace sr::math;
 namespace sr {
 namespace render {
 
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
-
-void put_pixel(Framebuffer &framebuffer, int x, int y, uint32_t color) {
-  if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT)
-    return;
-  framebuffer[y * SCREEN_WIDTH + x] = color;
-}
 void draw_line(Framebuffer &framebuffer, int x0, int y0, int x1, int y1,
                uint32_t color) {
   bool steep =
@@ -47,9 +38,9 @@ void draw_line(Framebuffer &framebuffer, int x0, int y0, int x1, int y1,
   int y = y0;
   for (int x = x0; x <= x1; x++) {
     if (steep) {
-      put_pixel(framebuffer, y, x, color);
+      framebuffer.put_pixel(y, x, color);
     } else {
-      put_pixel(framebuffer, x, y, color);
+      framebuffer.put_pixel(x, y, color);
     }
     err -= dy;
     if (err < 0) {
@@ -59,35 +50,10 @@ void draw_line(Framebuffer &framebuffer, int x0, int y0, int x1, int y1,
   }
 }
 
-class DepthBuffer {
-public:
-  int width, height;
-  std::vector<float> buffer;
-
-  DepthBuffer(int width, int height) : width(width), height(height) {
-    buffer.resize(width * height);
-    clear();
-  }
-
-  void clear() { std::fill(buffer.begin(), buffer.end(), 1.0f); }
-
-  float get(int x, int y) const {
-    if (x < 0 || x >= width || y < 0 || y >= height)
-      return 1.0f;
-    return buffer[y * width + x];
-  }
-  void set(int x, int y, float z) {
-    if (x < 0 || x >= width || y < 0 || y >= height)
-      return;
-    buffer[y * width + x] = z;
-  }
-};
-
 inline void drawTriangle(const Varying &v0, const Varying &v1,
                          const Varying &v2, //
                          const ShaderProgram &shader, const Uniforms &uniforms,
-                         std::vector<uint32_t> &framebuffer,
-                         DepthBuffer &depthBuffer) {
+                         Framebuffer &framebuffer) {
 
   int minY = static_cast<int>(
       std::floor(std::min({v0.screenPos.y, v1.screenPos.y, v2.screenPos.y})));
@@ -168,7 +134,7 @@ inline void drawTriangle(const Varying &v0, const Varying &v1,
                 corrFactor;
       float depth = 0.5f * (z + 1.0f); // NDC Z [-1,1] -> [0,1]
 
-      if (depth >= depthBuffer.get(x, y)) // early depth test
+      if (depth >= framebuffer.depth().get(x, y)) // early depth test
         continue;
 
       Varying interp;
@@ -191,18 +157,15 @@ inline void drawTriangle(const Varying &v0, const Varying &v1,
       uint8_t r = static_cast<uint8_t>(finalColor.x * 255.0f);
       uint8_t g = static_cast<uint8_t>(finalColor.y * 255.0f);
       uint8_t b = static_cast<uint8_t>(finalColor.z * 255.0f);
-      framebuffer[y * uniforms.screenWidth + x] =
-          0xFF000000 | (r << 16) | (g << 8) | b;
+      framebuffer.put_pixel(x, y, 0xFF000000 | (r << 16) | (g << 8) | b);
 
-      depthBuffer.set(x, y, depth);
+      framebuffer.depth().set(x, y, depth);
     }
   }
 }
 
 void drawTriangleWireframe(const Varying &v0, const Varying &v1,
-                           const Varying &v2,
-                           std::vector<uint32_t> &framebuffer, int width,
-                           int height) {
+                           const Varying &v2, Framebuffer &framebuffer) {
   // 转换为整数屏幕坐标
   int x0 = static_cast<int>(v0.screenPos.x);
   int y0 = static_cast<int>(v0.screenPos.y);
@@ -218,9 +181,9 @@ void drawTriangleWireframe(const Varying &v0, const Varying &v1,
   draw_line(framebuffer, x2, y2, x0, y0, WIREFRAME_COLOR);
 
   // 可选：绘制顶点标记（红色小点）
-  put_pixel(framebuffer, x0, y0, 0xFFFF0000);
-  put_pixel(framebuffer, x1, y1, 0xFFFF0000);
-  put_pixel(framebuffer, x2, y2, 0xFFFF0000);
+  framebuffer.put_pixel(x0, y0, 0xFFFF0000);
+  framebuffer.put_pixel(x1, y1, 0xFFFF0000);
+  framebuffer.put_pixel(x2, y2, 0xFFFF0000);
 }
 
 inline bool isFrontFace(const Vector3f &v0_view, const Vector3f &v1_view,

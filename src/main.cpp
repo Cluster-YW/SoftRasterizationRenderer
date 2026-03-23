@@ -31,16 +31,23 @@ bool enableCulling = true;
 const float NORMAL_DISPLAY_LENGTH = 0.1f;
 const uint32_t NORMAL_COLOR = 0xFF00FF00; // Green
 
+const int SCREEN_WIDTH = 800;
+const int SCREEN_HEIGHT = 600;
+
 int main(int argc, char *argv[]) {
+  Framebuffer framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT);
+  DepthBuffer &depthBuffer = framebuffer.depth();
+
   // ********** SDL initialization **********
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
     return 1;
   }
 
-  SDL_Window *window = SDL_CreateWindow(
-      "SoftRasterizationRenderer", SDL_WINDOWPOS_CENTERED,
-      SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+  SDL_Window *window =
+      SDL_CreateWindow("SoftRasterizationRenderer", SDL_WINDOWPOS_CENTERED,
+                       SDL_WINDOWPOS_CENTERED, framebuffer.width(),
+                       framebuffer.height(), SDL_WINDOW_SHOWN);
   if (window == nullptr) {
     std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
     SDL_Quit();
@@ -78,9 +85,6 @@ int main(int argc, char *argv[]) {
   Uint32 lastTime = SDL_GetTicks(); // time control
 
   // ********** SoftRasterizationRenderer initialization **********
-
-  Framebuffer framebuffer(SCREEN_WIDTH * SCREEN_HEIGHT, 0x00000000);
-  DepthBuffer depthBuffer(SCREEN_WIDTH, SCREEN_HEIGHT);
 
   bool quit = false;
   SDL_Event event;
@@ -206,9 +210,8 @@ int main(int argc, char *argv[]) {
 
     // ================
     // ==== Render ====
-    std::fill(framebuffer.begin(), framebuffer.end(),
-              0x00000000); // clear framebuffer
-    depthBuffer.clear();   // clear depth buffer
+    framebuffer.clear(); // clear framebuffer
+    depthBuffer.clear(); // clear depth buffer
 
     // update matrix
     angle += 0.05f * deltaTime;
@@ -268,13 +271,12 @@ int main(int argc, char *argv[]) {
       const Varying &v2 = varyings[idx2];
 
       if (wireframeMode) {
-        drawTriangleWireframe(v0, v1, v2, framebuffer, SCREEN_WIDTH,
-                              SCREEN_HEIGHT);
+        drawTriangleWireframe(v0, v1, v2, framebuffer);
         renderedCount++;
       } else {
         if (!enableCulling || isFrontFace(v0.viewPos, v1.viewPos, v2.viewPos)) {
           drawTriangle(v0, v1, v2, //
-                       activeShader, uniforms, framebuffer, depthBuffer);
+                       activeShader, uniforms, framebuffer);
           renderedCount++;
         } else
           culledCount++;
@@ -285,7 +287,7 @@ int main(int argc, char *argv[]) {
 
     // update texture
     SDL_UpdateTexture(texture, nullptr, framebuffer.data(),
-                      SCREEN_WIDTH * sizeof(uint32_t));
+                      framebuffer.width() * sizeof(uint32_t));
 
     // render texture
     SDL_RenderClear(renderer);
